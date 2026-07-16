@@ -21,11 +21,16 @@ export default function DashboardPage() {
   });
 
   const myListings = listingsQuery.data?.results.filter((l) => l.owner.id === user?.id) ?? [];
+  // The API only returns requests where the current user is either the
+  // requester or the listing owner; since a request doesn't carry the
+  // owner's id directly, "incoming" is everything where someone *else* did
+  // the requesting (per API_REFERENCE.md's client-side filtering note).
+  const incoming = requestsQuery.data?.results.filter((r) => r.requester.id !== user?.id && r.status === "pending") ?? [];
 
   return (
     <div className="container-page py-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-display-md">Welcome back{user ? `, ${user.displayName.split(" ")[0]}` : ""}</h1>
+        <h1 className="text-display-md">Welcome back{user ? `, ${user.username}` : ""}</h1>
         <Link href="/listings/new">
           <Button>
             <PlusCircle size={18} className="mr-1.5" aria-hidden="true" />
@@ -61,7 +66,7 @@ export default function DashboardPage() {
         <h2 className="text-display-sm">Pending requests</h2>
         {requestsQuery.isLoading ? (
           <p className="mt-3 text-sm text-ink-700/70">Loading…</p>
-        ) : (requestsQuery.data?.incoming.length ?? 0) === 0 ? (
+        ) : incoming.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               icon={Inbox}
@@ -71,11 +76,11 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-3">
-            {requestsQuery.data!.incoming.map((r) => (
+            {incoming.map((r) => (
               <Card key={r.id} className="flex items-center justify-between gap-4 p-4">
                 <div>
-                  <p className="font-medium text-ink-900">{r.listing.title}</p>
-                  <p className="text-sm text-ink-700/70">from {r.requester.displayName}</p>
+                  <p className="font-medium text-ink-900">{r.listingTitle}</p>
+                  <p className="text-sm text-ink-700/70">from {r.requester.username}</p>
                 </div>
                 <Link href="/requests" className="text-sm font-medium text-terracotta-600">
                   Review

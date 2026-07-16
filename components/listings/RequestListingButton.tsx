@@ -22,8 +22,16 @@ export function RequestListingButton({ listingId }: { listingId: string }) {
       setOpen(false);
     },
     onError: (err) => {
-      const msg = err instanceof ApiClientError ? err.message : "Couldn't send your request. Please try again.";
-      push(msg, "error");
+      if (err instanceof ApiClientError) {
+        const friendly: Record<string, string> = {
+          self_request: "You can't request your own listing.",
+          listing_unavailable: "This listing isn't available anymore.",
+          duplicate_request: "You already have a pending request on this listing.",
+        };
+        push(friendly[err.code] ?? err.message, "error");
+        return;
+      }
+      push("Couldn't send your request. Please try again.", "error");
     },
   });
 

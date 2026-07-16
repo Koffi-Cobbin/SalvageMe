@@ -38,6 +38,7 @@ const statusMap: Record<ListingStatus, { tone: BadgeTone; icon: LucideIcon; labe
   available: { tone: "moss", icon: CheckCircle2, label: "Available" },
   pending: { tone: "amber", icon: Clock, label: "Pending" },
   claimed: { tone: "rose", icon: XCircle, label: "Claimed" },
+  removed: { tone: "neutral", icon: XCircle, label: "Removed" },
 };
 
 export function ListingStatusBadge({ status }: { status: ListingStatus }) {
@@ -51,7 +52,6 @@ export function ListingStatusBadge({ status }: { status: ListingStatus }) {
 
 const conditionLabel: Record<ListingCondition, string> = {
   new: "New",
-  like_new: "Like New",
   good: "Good",
   fair: "Fair",
   worn: "Worn",

@@ -4,7 +4,7 @@ import { apiClient } from "@/lib/api-client";
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ListingFilters } from "@/components/listings/ListingFilters";
 import { EmptyState } from "@/components/ui";
-import type { ListingCondition, GradeLevel } from "@/types";
+import type { ListingCondition } from "@/types";
 
 export const metadata: Metadata = {
   title: "Browse Books",
@@ -19,7 +19,7 @@ export default async function ListingsPage({
   const { results } = await apiClient.listListings({
     category: searchParams.category || undefined,
     condition: (searchParams.condition as ListingCondition) || undefined,
-    gradeLevel: (searchParams.gradeLevel as GradeLevel) || undefined,
+    gradeLevel: searchParams.gradeLevel || undefined,
     q: searchParams.q || undefined,
   });
 

@@ -3,32 +3,44 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Inbox, Send } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
+import { useSessionStore } from "@/lib/stores/session-store";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
-import type { ExchangeRequest } from "@/types";
+import type { BookRequest, Paginated } from "@/types";
 
 export default function RequestsPage() {
   const queryClient = useQueryClient();
   const push = useToastStore((s) => s.push);
+  const { user } = useSessionStore();
   const { data, isLoading } = useQuery({ queryKey: ["requests"], queryFn: () => apiClient.listRequests() });
+
+  // The API returns every request where the current user is either the
+  // requester or the listing owner, combined — split client-side by
+  // comparing requester.id to the current user's id (see API_REFERENCE.md).
+  const sent = data?.results.filter((r) => r.requester.id === user?.id) ?? [];
+  const incoming = data?.results.filter((r) => r.requester.id !== user?.id) ?? [];
 
   const accept = useMutation({
     mutationFn: (id: string) => apiClient.acceptRequest(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["requests"] });
-      const previous = queryClient.getQueryData<{ incoming: ExchangeRequest[]; sent: ExchangeRequest[] }>(["requests"]);
+      const previous = queryClient.getQueryData<Paginated<BookRequest>>(["requests"]);
       queryClient.setQueryData(["requests"], (old: typeof previous) =>
         old
-          ? { ...old, incoming: old.incoming.map((r) => (r.id === id ? { ...r, status: "accepted" as const } : r)) }
+          ? { ...old, results: old.results.map((r) => (r.id === id ? { ...r, status: "accepted" as const } : r)) }
           : old,
       );
       return { previous };
     },
     onError: (err, _id, context) => {
       queryClient.setQueryData(["requests"], context?.previous);
-      push(err instanceof ApiClientError ? err.message : "Couldn't accept the request.", "error");
+      if (err instanceof ApiClientError && err.code === "invalid_transition") {
+        push("This request was already handled.", "info");
+      } else {
+        push(err instanceof ApiClientError ? err.message : "Couldn't accept the request.", "error");
+      }
     },
-    onSuccess: () => push("Request accepted — time to schedule the exchange.", "success"),
+    onSuccess: () => push("Request accepted — head to Exchanges to schedule the hand-off.", "success"),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["requests"] }),
   });
 
@@ -38,7 +50,14 @@ export default function RequestsPage() {
       push("Request declined.", "info");
       queryClient.invalidateQueries({ queryKey: ["requests"] });
     },
-    onError: (err) => push(err instanceof ApiClientError ? err.message : "Couldn't decline the request.", "error"),
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === "invalid_transition") {
+        push("This request was already handled.", "info");
+        queryClient.invalidateQueries({ queryKey: ["requests"] });
+        return;
+      }
+      push(err instanceof ApiClientError ? err.message : "Couldn't decline the request.", "error");
+    },
   });
 
   if (isLoading) return <p className="container-page py-10 text-ink-700/70">Loading requests…</p>;
@@ -51,17 +70,17 @@ export default function RequestsPage() {
         <h2 className="flex items-center gap-2 text-display-sm">
           <Inbox size={22} aria-hidden="true" /> Incoming
         </h2>
-        {data!.incoming.length === 0 ? (
+        {incoming.length === 0 ? (
           <div className="mt-3">
             <EmptyState icon={Inbox} title="No incoming requests" description="Requests for your listings will appear here." />
           </div>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
-            {data!.incoming.map((r) => (
+            {incoming.map((r) => (
               <Card key={r.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium text-ink-900">{r.listing.title}</p>
-                  <p className="text-sm text-ink-700/80">&ldquo;{r.message}&rdquo; — {r.requester.displayName}</p>
+                  <p className="font-medium text-ink-900">{r.listingTitle}</p>
+                  {r.message && <p className="text-sm text-ink-700/80">&ldquo;{r.message}&rdquo; — {r.requester.username}</p>}
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-ink-700/50">{r.status}</p>
                 </div>
                 {r.status === "pending" && (
@@ -84,15 +103,15 @@ export default function RequestsPage() {
         <h2 className="flex items-center gap-2 text-display-sm">
           <Send size={20} aria-hidden="true" /> Sent
         </h2>
-        {data!.sent.length === 0 ? (
+        {sent.length === 0 ? (
           <div className="mt-3">
             <EmptyState icon={Send} title="No sent requests" description="Books you've requested will show up here with their status." />
           </div>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
-            {data!.sent.map((r) => (
+            {sent.map((r) => (
               <Card key={r.id} className="flex items-center justify-between p-4">
-                <p className="font-medium text-ink-900">{r.listing.title}</p>
+                <p className="font-medium text-ink-900">{r.listingTitle}</p>
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-700/50">{r.status}</p>
               </Card>
             ))}

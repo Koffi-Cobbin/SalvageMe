@@ -11,8 +11,8 @@ import { ApiClientError } from "@/lib/api-client";
 import { Button, Input } from "@/components/ui";
 
 const schema = z.object({
-  email: z.string().email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  username: z.string().min(1, "Enter your username"),
+  password: z.string().min(1, "Enter your password"),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -29,7 +29,7 @@ function LoginForm() {
   async function onSubmit(values: FormValues) {
     setFormError(null);
     try {
-      await login(values.email, values.password);
+      await login(values.username, values.password);
       router.push(searchParams.get("returnTo") || "/dashboard");
     } catch (err) {
       setFormError(err instanceof ApiClientError ? err.message : "Couldn't sign you in. Please try again.");
@@ -40,7 +40,7 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       <h1 className="text-display-sm text-center">Welcome back</h1>
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 flex flex-col gap-4">
-        <Input label="Email" type="email" error={errors.email?.message} {...register("email")} />
+        <Input label="Username" error={errors.username?.message} {...register("username")} />
         <Input label="Password" type="password" error={errors.password?.message} {...register("password")} />
         {formError && (
           <p role="alert" className="text-sm font-medium text-rose-700">{formError}</p>

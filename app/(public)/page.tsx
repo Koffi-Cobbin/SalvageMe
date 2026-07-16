@@ -1,12 +1,20 @@
 import Link from "next/link";
-import { BookOpen, Users, MapPinned, HeartHandshake } from "lucide-react";
+import { BookOpen, Users, HeartHandshake } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { Button, Card } from "@/components/ui";
 
 export const revalidate = 3600; // ISR: impact stats refresh hourly
 
 export default async function HomePage() {
-  const stats = await apiClient.getImpactStats();
+  // Impact stats are a nice-to-have on this page, not critical content —
+  // don't fail the whole page (or the build, for SSG/ISR) if the backend
+  // is briefly unreachable. Falls back to a friendly placeholder instead.
+  let stats: Awaited<ReturnType<typeof apiClient.getImpactStats>> | null = null;
+  try {
+    stats = await apiClient.getImpactStats();
+  } catch {
+    stats = null;
+  }
 
   return (
     <>
@@ -30,13 +38,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-paper-100 py-14">
-        <div className="container-page grid gap-6 sm:grid-cols-3">
-          <StatCard icon={BookOpen} value={stats.booksExchanged.toLocaleString()} label="Books exchanged" />
-          <StatCard icon={Users} value={stats.studentsReached.toLocaleString()} label="Students reached" />
-          <StatCard icon={MapPinned} value={stats.activeCommunities.toLocaleString()} label="Active communities" />
-        </div>
-      </section>
+      {stats && (
+        <section className="bg-paper-100 py-14">
+          <div className="container-page grid gap-6 sm:grid-cols-3">
+            <StatCard icon={BookOpen} value={stats.totalListings.toLocaleString()} label="Books listed" />
+            <StatCard icon={HeartHandshake} value={stats.totalExchangesCompleted.toLocaleString()} label="Exchanges completed" />
+            <StatCard icon={Users} value={(stats.totalActiveDonors + stats.totalActiveRecipients).toLocaleString()} label="Community members" />
+          </div>
+        </section>
+      )}
 
       <section className="container-page py-16">
         <div className="mx-auto max-w-xl text-center">

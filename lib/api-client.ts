@@ -1,13 +1,18 @@
 import type {
-  ApiError,
   AuthTokens,
+  BookRequest,
+  Category,
+  CounterpartContact,
   DropoffPoint,
   Exchange,
-  ExchangeRequest,
+  HealthStatus,
   ImpactStats,
   Listing,
+  ListingImage,
   ListingsQuery,
   Paginated,
+  PublicUser,
+  Rating,
   ReportPayload,
   User,
 } from "@/types";
@@ -16,157 +21,383 @@ import { mockAdapter } from "./mock-adapter";
 /**
  * ApiAdapter is the contract every implementation (mock or live) must
  * satisfy. Components and hooks only ever import `apiClient` below — never
- * an adapter directly — so swapping mock -> live is a one-line change.
+ * an adapter directly — so swapping mock -> live is a one-line env change.
  */
 export interface ApiAdapter {
-  login(email: string, password: string): Promise<{ user: User; tokens: AuthTokens }>;
   register(input: {
-    email: string;
+    username: string;
     password: string;
-    displayName: string;
+    email?: string;
+    role?: "donor" | "recipient" | "both";
+    phone?: string;
   }): Promise<{ user: User; tokens: AuthTokens }>;
+  login(username: string, password: string): Promise<{ user: User; tokens: AuthTokens }>;
   refresh(): Promise<AuthTokens>;
+  logout(): Promise<void>;
   me(): Promise<User>;
-  updateMe(patch: Partial<Pick<User, "displayName" | "city">>): Promise<User>;
+  updateMe(
+    patch: Partial<{
+      email: string;
+      role: User["role"];
+      phone: string;
+      latitude: number;
+      longitude: number;
+    }>,
+  ): Promise<User>;
+
+  listCategories(): Promise<Category[]>;
 
   listListings(query: ListingsQuery): Promise<Paginated<Listing>>;
   getListing(id: string): Promise<Listing>;
-  createListing(input: Partial<Listing>): Promise<Listing>;
-  updateListing(id: string, patch: Partial<Listing>): Promise<Listing>;
+  createListing(input: {
+    title: string;
+    description: string;
+    categoryId: string;
+    condition: Listing["condition"];
+    gradeLevel?: string;
+    latitude?: number;
+    longitude?: number;
+  }): Promise<Listing>;
+  updateListing(id: string, patch: Partial<Parameters<ApiAdapter["createListing"]>[0]>): Promise<Listing>;
   deleteListing(id: string): Promise<void>;
+  uploadListingPhoto(listingId: string, file: File): Promise<ListingImage>;
 
-  requestListing(listingId: string, message: string): Promise<ExchangeRequest>;
-  acceptRequest(requestId: string): Promise<ExchangeRequest>;
-  declineRequest(requestId: string): Promise<ExchangeRequest>;
-  listRequests(): Promise<{ incoming: ExchangeRequest[]; sent: ExchangeRequest[] }>;
+  requestListing(listingId: string, message?: string): Promise<BookRequest>;
+  listRequests(): Promise<Paginated<BookRequest>>;
+  getRequest(id: string): Promise<BookRequest>;
+  acceptRequest(requestId: string): Promise<BookRequest>;
+  declineRequest(requestId: string): Promise<BookRequest>;
 
+  listExchanges(): Promise<Paginated<Exchange>>;
+  getExchange(id: string): Promise<Exchange>;
   scheduleExchange(
     exchangeId: string,
-    input: { scheduledFor: string | null; isFlexible: boolean; dropoffPointId: string | null },
+    input: { scheduledAt: string; dropoffPointId?: string | null },
   ): Promise<Exchange>;
   completeExchange(exchangeId: string): Promise<Exchange>;
   cancelExchange(exchangeId: string): Promise<Exchange>;
-  getExchange(id: string): Promise<Exchange>;
+  rateExchange(exchangeId: string, input: { score: number; comment?: string }): Promise<Rating>;
 
   listDropoffPoints(): Promise<DropoffPoint[]>;
   submitReport(payload: ReportPayload): Promise<void>;
   getImpactStats(): Promise<ImpactStats>;
+  getHealth(): Promise<HealthStatus>;
 }
 
-export class ApiClientError extends Error implements ApiError {
+export class ApiClientError extends Error {
   status: number;
   code: string;
-  fieldErrors?: Record<string, string[]>;
-  constructor(err: ApiError) {
-    super(err.message);
-    this.status = err.status;
-    this.code = err.code;
-    this.fieldErrors = err.fieldErrors;
+  errors?: Record<string, string[]>;
+  constructor(status: number, code: string, message: string, errors?: Record<string, string[]>) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.errors = errors;
   }
 }
 
-function createLiveAdapter(baseUrl: string): ApiAdapter {
-  // Access token lives in memory only (never localStorage) per the auth
-  // requirement; refresh token is an httpOnly cookie the browser sends
-  // automatically, so no client-side handling of it is needed here.
+// ---- wire <-> app shape mapping -------------------------------------------------
+
+function toPublicUser(u: any): PublicUser {
+  return {
+    id: String(u.id),
+    username: u.username,
+    role: u.role,
+    isVerified: u.is_verified,
+    dateJoined: u.date_joined,
+  };
+}
+
+function toUser(u: any): User {
+  return {
+    id: String(u.id),
+    username: u.username,
+    email: u.email ?? null,
+    role: u.role,
+    phone: u.phone ?? null,
+    isVerified: u.is_verified,
+    avatarUrl: u.avatar_url ?? null,
+    latitude: u.latitude ?? null,
+    longitude: u.longitude ?? null,
+    dateJoined: u.date_joined,
+  };
+}
+
+function toCategory(c: any): Category {
+  return { id: String(c.id), name: c.name, slug: c.slug };
+}
+
+function toListing(l: any): Listing {
+  return {
+    id: String(l.id),
+    owner: toPublicUser(l.owner),
+    title: l.title,
+    description: l.description,
+    category: toCategory(l.category),
+    gradeLevel: l.grade_level ?? null,
+    condition: l.condition,
+    status: l.status,
+    images: (l.images ?? []).map((img: any) => ({ id: String(img.id), url: img.url, order: img.order })),
+    distanceKm: l.distance_km ?? null,
+    createdAt: l.created_at,
+    updatedAt: l.updated_at,
+  };
+}
+
+function toBookRequest(r: any): BookRequest {
+  return {
+    id: String(r.id),
+    listingId: String(r.listing),
+    listingTitle: r.listing_title,
+    requester: toPublicUser(r.requester),
+    status: r.status,
+    message: r.message ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+function toDropoffPoint(d: any): DropoffPoint {
+  return { id: String(d.id), name: d.name, address: d.address, latitude: d.latitude, longitude: d.longitude };
+}
+
+function toContact(c: any): CounterpartContact | null {
+  if (!c) return null;
+  return { username: c.username, phone: c.phone ?? null, latitude: c.latitude ?? null, longitude: c.longitude ?? null };
+}
+
+function toExchange(e: any): Exchange {
+  return {
+    id: String(e.id),
+    listingId: String(e.listing),
+    listingTitle: e.listing_title,
+    donor: toPublicUser(e.donor),
+    recipient: toPublicUser(e.recipient),
+    dropoffPoint: e.dropoff_point ? toDropoffPoint(e.dropoff_point) : null,
+    status: e.status,
+    scheduledAt: e.scheduled_at ?? null,
+    completedAt: e.completed_at ?? null,
+    counterpartContact: toContact(e.counterpart_contact),
+  };
+}
+
+function toRating(r: any): Rating {
+  return {
+    id: String(r.id),
+    ratedUserId: String(r.rated_user),
+    ratedById: String(r.rated_by),
+    exchangeId: String(r.exchange),
+    score: r.score,
+    comment: r.comment ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+function toImpactStats(s: any): ImpactStats {
+  return {
+    totalListings: s.total_listings,
+    totalExchangesCompleted: s.total_exchanges_completed,
+    totalActiveDonors: s.total_active_donors,
+    totalActiveRecipients: s.total_active_recipients,
+    computedAt: s.computed_at,
+  };
+}
+
+function toPaginated<T>(body: any, map: (x: any) => T): Paginated<T> {
+  return {
+    results: (body.results ?? []).map(map),
+    nextCursorUrl: body.next ?? null,
+    previousCursorUrl: body.previous ?? null,
+  };
+}
+
+// ---- live adapter -----------------------------------------------------------------
+
+function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
+  // Access token lives only in this closure (never localStorage) per the
+  // auth requirement. The refresh token itself is an httpOnly cookie
+  // (`salvageme_refresh`) scoped to the *API's own domain* and path
+  // (/api/v1/auth/) — the browser attaches it automatically on any
+  // credentialed request to that domain, but our own Next.js server can
+  // never read it (see middleware.ts for how route protection is handled
+  // given this cross-origin constraint).
   let accessToken: string | null = null;
 
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${baseUrl}${path}`, {
+  async function raw(url: string, init: RequestInit = {}, isRetry = false): Promise<Response> {
+    const res = await fetch(url, {
       ...init,
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...init.headers,
       },
     });
 
-    if (res.status === 401 && !path.startsWith("/auth/refresh")) {
-      try {
-        const tokens = await request<AuthTokens>("/auth/refresh/", { method: "POST" });
-        accessToken = tokens.accessToken;
-        return request<T>(path, init); // retry once
-      } catch {
-        throw new ApiClientError({ status: 401, code: "unauthenticated", message: "Session expired" });
+    if (res.status === 401 && !isRetry && !url.includes("/auth/refresh/") && !url.includes("/auth/login/")) {
+      const refreshRes = await fetch(`${baseUrl}/auth/refresh/`, { method: "POST", credentials: "include" });
+      if (refreshRes.ok) {
+        const body = await refreshRes.json();
+        accessToken = body.access;
+        return raw(url, init, true);
       }
     }
+    return res;
+  }
+
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const url = path.startsWith("http") ? path : `${baseUrl}${path}`;
+    const res = await raw(url, init);
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new ApiClientError({
-        status: res.status,
-        code: body.code ?? "unknown_error",
-        message: body.message ?? "Something went wrong. Please try again.",
-        fieldErrors: body.fieldErrors,
-      });
+      const detail = typeof body.detail === "string" ? body.detail : "Something went wrong. Please try again.";
+      throw new ApiClientError(res.status, body.code ?? "unknown_error", detail, body.errors);
     }
     if (res.status === 204) return undefined as T;
     return res.json();
   }
 
   return {
-    async login(email, password) {
-      const result = await request<{ user: User; tokens: AuthTokens }>("/auth/login/", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      accessToken = result.tokens.accessToken;
-      return result;
-    },
     async register(input) {
-      const result = await request<{ user: User; tokens: AuthTokens }>("/auth/register/", {
+      const body = await request<any>("/auth/register/", {
         method: "POST",
         body: JSON.stringify(input),
       });
-      accessToken = result.tokens.accessToken;
-      return result;
+      accessToken = body.access;
+      return { user: toUser(body.user), tokens: { accessToken: body.access } };
+    },
+    async login(username, password) {
+      const body = await request<any>("/auth/login/", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      accessToken = body.access;
+      return { user: toUser(body.user), tokens: { accessToken: body.access } };
     },
     async refresh() {
-      const tokens = await request<AuthTokens>("/auth/refresh/", { method: "POST" });
-      accessToken = tokens.accessToken;
-      return tokens;
+      const body = await request<any>("/auth/refresh/", { method: "POST" });
+      accessToken = body.access;
+      return { accessToken: body.access };
     },
-    me: () => request("/users/me/"),
-    updateMe: (patch) => request("/users/me/", { method: "PATCH", body: JSON.stringify(patch) }),
+    async logout() {
+      await request("/auth/logout/", { method: "POST" });
+      accessToken = null;
+    },
+    me: async () => toUser(await request("/users/me/")),
+    updateMe: async (patch) => {
+      const body: Record<string, unknown> = {};
+      if (patch.email !== undefined) body.email = patch.email;
+      if (patch.role !== undefined) body.role = patch.role;
+      if (patch.phone !== undefined) body.phone = patch.phone;
+      if (patch.latitude !== undefined && patch.longitude !== undefined) {
+        body.latitude = patch.latitude;
+        body.longitude = patch.longitude;
+      }
+      return toUser(await request("/users/me/", { method: "PATCH", body: JSON.stringify(body) }));
+    },
 
-    listListings: (query) => {
+    listCategories: async () => (await request<any[]>("/categories/")).map(toCategory),
+
+    async listListings(query) {
+      if (query.cursorUrl) {
+        return toPaginated(await request<any>(query.cursorUrl), toListing);
+      }
       const params = new URLSearchParams();
       if (query.category) params.set("category", query.category);
       if (query.condition) params.set("condition", query.condition);
       if (query.gradeLevel) params.set("grade_level", query.gradeLevel);
+      if (query.q) params.set("q", query.q);
       if (query.near) params.set("near", `${query.near.lat},${query.near.lng}`);
       if (query.radiusKm) params.set("radius", String(query.radiusKm));
-      if (query.q) params.set("q", query.q);
-      if (query.cursor) params.set("cursor", query.cursor);
-      return request(`/listings/?${params.toString()}`);
+      if (query.pageSize) params.set("page_size", String(query.pageSize));
+      return toPaginated(await request<any>(`/listings/?${params.toString()}`), toListing);
     },
-    getListing: (id) => request(`/listings/${id}/`),
-    createListing: (input) => request("/listings/", { method: "POST", body: JSON.stringify(input) }),
-    updateListing: (id, patch) =>
-      request(`/listings/${id}/`, { method: "PATCH", body: JSON.stringify(patch) }),
+    getListing: async (id) => toListing(await request(`/listings/${id}/`)),
+    createListing: async (input) =>
+      toListing(
+        await request("/listings/", {
+          method: "POST",
+          body: JSON.stringify({
+            title: input.title,
+            description: input.description,
+            category: Number(input.categoryId),
+            condition: input.condition,
+            grade_level: input.gradeLevel,
+            latitude: input.latitude,
+            longitude: input.longitude,
+          }),
+        }),
+      ),
+    updateListing: async (id, patch) => {
+      const body: Record<string, unknown> = {};
+      if (patch.title !== undefined) body.title = patch.title;
+      if (patch.description !== undefined) body.description = patch.description;
+      if (patch.categoryId !== undefined) body.category = Number(patch.categoryId);
+      if (patch.condition !== undefined) body.condition = patch.condition;
+      if (patch.gradeLevel !== undefined) body.grade_level = patch.gradeLevel;
+      if (patch.latitude !== undefined) body.latitude = patch.latitude;
+      if (patch.longitude !== undefined) body.longitude = patch.longitude;
+      return toListing(await request(`/listings/${id}/`, { method: "PATCH", body: JSON.stringify(body) }));
+    },
     deleteListing: (id) => request(`/listings/${id}/`, { method: "DELETE" }),
+    uploadListingPhoto: async (listingId, file) => {
+      const form = new FormData();
+      form.append("file", file);
+      const img = await request<any>(`/listings/${listingId}/photos/`, { method: "POST", body: form });
+      return { id: String(img.id), url: img.url, order: img.order };
+    },
 
-    requestListing: (listingId, message) =>
-      request(`/listings/${listingId}/request/`, { method: "POST", body: JSON.stringify({ message }) }),
-    acceptRequest: (requestId) => request(`/requests/${requestId}/accept/`, { method: "POST" }),
-    declineRequest: (requestId) => request(`/requests/${requestId}/decline/`, { method: "POST" }),
-    listRequests: () => request("/requests/"),
+    requestListing: async (listingId, message) =>
+      toBookRequest(
+        await request(`/listings/${listingId}/request/`, { method: "POST", body: JSON.stringify({ message }) }),
+      ),
+    listRequests: async () => toPaginated(await request<any>("/requests/"), toBookRequest),
+    getRequest: async (id) => toBookRequest(await request(`/requests/${id}/`)),
+    acceptRequest: async (requestId) => toBookRequest(await request(`/requests/${requestId}/accept/`, { method: "POST" })),
+    declineRequest: async (requestId) => toBookRequest(await request(`/requests/${requestId}/decline/`, { method: "POST" })),
 
-    scheduleExchange: (exchangeId, input) =>
-      request(`/exchanges/${exchangeId}/schedule/`, { method: "POST", body: JSON.stringify(input) }),
-    completeExchange: (exchangeId) => request(`/exchanges/${exchangeId}/complete/`, { method: "POST" }),
-    cancelExchange: (exchangeId) => request(`/exchanges/${exchangeId}/cancel/`, { method: "POST" }),
-    getExchange: (id) => request(`/exchanges/${id}/`),
+    listExchanges: async () => toPaginated(await request<any>("/exchanges/"), toExchange),
+    getExchange: async (id) => toExchange(await request(`/exchanges/${id}/`)),
+    scheduleExchange: async (exchangeId, input) =>
+      toExchange(
+        await request(`/exchanges/${exchangeId}/schedule/`, {
+          method: "POST",
+          body: JSON.stringify({
+            scheduled_at: input.scheduledAt,
+            dropoff_point: input.dropoffPointId ? Number(input.dropoffPointId) : undefined,
+          }),
+        }),
+      ),
+    completeExchange: async (exchangeId) => toExchange(await request(`/exchanges/${exchangeId}/complete/`, { method: "POST" })),
+    cancelExchange: async (exchangeId) => toExchange(await request(`/exchanges/${exchangeId}/cancel/`, { method: "POST" })),
+    rateExchange: async (exchangeId, input) =>
+      toRating(
+        await request(`/exchanges/${exchangeId}/rate/`, {
+          method: "POST",
+          body: JSON.stringify({ score: input.score, comment: input.comment }),
+        }),
+      ),
 
-    listDropoffPoints: () => request("/dropoff-points/"),
-    submitReport: (payload) => request("/reports/", { method: "POST", body: JSON.stringify(payload) }),
-    getImpactStats: () => request("/stats/impact/"),
+    listDropoffPoints: async () => (await request<any[]>("/dropoff-points/")).map(toDropoffPoint),
+    submitReport: (payload) =>
+      request("/reports/", {
+        method: "POST",
+        body: JSON.stringify({
+          target_type: payload.targetType,
+          target_id: Number(payload.targetId),
+          reason: payload.reason,
+          detail: payload.detail,
+        }),
+      }),
+    getImpactStats: async () => toImpactStats(await request("/stats/impact/")),
+    getHealth: async () => request(`${healthBaseUrl}/health/`),
   };
 }
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-const mode = process.env.NEXT_PUBLIC_API_MODE ?? (baseUrl ? "live" : "mock");
+const baseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://salvageme.pythonanywhere.com/api/v1").replace(/\/$/, "");
+// Health check lives outside /api/v1 (at the API root), per API_REFERENCE.md.
+const healthBaseUrl = baseUrl.replace(/\/api\/v1$/, "/api");
+const mode = process.env.NEXT_PUBLIC_API_MODE ?? "live";
 
 // This is the ONLY export components/hooks should use.
-export const apiClient: ApiAdapter = mode === "live" && baseUrl ? createLiveAdapter(baseUrl) : mockAdapter;
+export const apiClient: ApiAdapter = mode === "mock" ? mockAdapter : createLiveAdapter(baseUrl, healthBaseUrl);

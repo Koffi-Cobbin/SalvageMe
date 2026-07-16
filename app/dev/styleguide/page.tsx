@@ -45,7 +45,7 @@ export default function StyleguidePage() {
           <ListingStatusBadge status="available" />
           <ListingStatusBadge status="pending" />
           <ListingStatusBadge status="claimed" />
-          <ConditionBadge condition="like_new" />
+          <ConditionBadge condition="good" />
           <VerifiedBadge />
         </div>
       </section>

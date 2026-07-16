@@ -1,114 +1,164 @@
-// Types mirror the Django REST Framework contract described in the spec.
-// Keep these as the single source of truth — components must not redefine
-// shapes locally.
+// Types mirror the real SalvageMe API — see API_REFERENCE.md. IDs are
+// numeric on the wire; we keep them as strings in the frontend (Next.js
+// dynamic route params are always strings anyway) and convert with Number()
+// only where the API needs a numeric value in a request body (e.g. category).
 
-export type ListingCondition = "new" | "like_new" | "good" | "fair" | "worn";
-export type ListingStatus = "available" | "pending" | "claimed";
-export type GradeLevel =
-  | "pre_k"
-  | "elementary"
-  | "middle_school"
-  | "high_school"
-  | "college"
-  | "adult_education";
+export type UserRole = "donor" | "recipient" | "both";
+export type ListingCondition = "new" | "good" | "fair" | "worn";
+export type ListingStatus = "available" | "pending" | "claimed" | "removed";
+export type RequestStatus = "pending" | "accepted" | "declined" | "cancelled";
+export type ExchangeStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+export type ReportTargetType = "listing" | "user";
+export type ReportReason = "spam" | "inappropriate" | "misrepresented" | "no_show" | "other";
+export type ReportStatus = "open" | "resolved" | "dismissed";
 
+/** Full shape — only ever returned for the authenticated user themself. */
 export interface User {
   id: string;
-  displayName: string;
+  username: string;
+  email: string | null;
+  role: UserRole;
+  phone: string | null;
+  isVerified: boolean;
   avatarUrl: string | null;
-  verified: boolean;
-  memberSince: string; // ISO date
-  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  dateJoined: string;
+}
+
+/** PublicUserSerializer shape — no phone, no location, no avatarUrl. This is
+ * what you get for `owner`, `requester`, `donor`, `recipient` anywhere else
+ * in the API. Don't add fields here that aren't actually returned. */
+export interface PublicUser {
+  id: string;
+  username: string;
+  role: UserRole;
+  isVerified: boolean;
+  dateJoined: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface ListingImage {
+  id: string;
+  url: string;
+  order: number;
 }
 
 export interface Listing {
   id: string;
+  owner: PublicUser;
   title: string;
   description: string;
-  category: string;
+  category: Category;
+  gradeLevel: string | null;
   condition: ListingCondition;
-  gradeLevel: GradeLevel;
   status: ListingStatus;
-  images: { id: string; url: string; alt: string }[];
-  owner: Pick<User, "id" | "displayName" | "avatarUrl" | "verified">;
-  location: { city: string; lat: number; lng: number } | null;
+  images: ListingImage[];
+  distanceKm: number | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ListingsQuery {
-  category?: string;
+  category?: string; // slug
   condition?: ListingCondition;
-  gradeLevel?: GradeLevel;
+  gradeLevel?: string;
+  q?: string;
   near?: { lat: number; lng: number };
   radiusKm?: number;
-  q?: string;
-  cursor?: string | null;
+  pageSize?: number;
+  cursorUrl?: string | null; // opaque `next`/`previous` URL, followed as-is
 }
 
+/** Cursor-paginated list response. `nextCursorUrl`/`previousCursorUrl` are
+ * opaque full URLs returned by the API — never construct or parse them. */
 export interface Paginated<T> {
   results: T[];
-  nextCursor: string | null;
+  nextCursorUrl: string | null;
+  previousCursorUrl: string | null;
 }
 
-export type RequestStatus = "pending" | "accepted" | "declined" | "cancelled";
-
-export interface ExchangeRequest {
+export interface BookRequest {
   id: string;
   listingId: string;
-  listing: Pick<Listing, "id" | "title" | "images" | "status">;
-  requester: Pick<User, "id" | "displayName" | "avatarUrl">;
-  donor: Pick<User, "id" | "displayName" | "avatarUrl">;
+  listingTitle: string;
+  requester: PublicUser;
   status: RequestStatus;
   message: string;
   createdAt: string;
 }
 
-export type ExchangeStatus = "scheduling" | "scheduled" | "completed" | "cancelled";
-
 export interface DropoffPoint {
   id: string;
   name: string;
   address: string;
-  lat: number;
-  lng: number;
-  hours: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface CounterpartContact {
+  username: string;
+  phone: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface Exchange {
   id: string;
-  requestId: string;
-  listing: Pick<Listing, "id" | "title" | "images">;
-  status: ExchangeStatus;
-  scheduledFor: string | null; // ISO datetime, null if "flexible"
-  isFlexible: boolean;
+  listingId: string;
+  listingTitle: string;
+  donor: PublicUser;
+  recipient: PublicUser;
   dropoffPoint: DropoffPoint | null;
-  rating: { score: number; comment: string } | null;
-  counterparty: Pick<User, "id" | "displayName" | "avatarUrl">;
+  status: ExchangeStatus;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  counterpartContact: CounterpartContact | null;
+}
+
+export interface Rating {
+  id: string;
+  ratedUserId: string;
+  ratedById: string;
+  exchangeId: string;
+  score: number;
+  comment: string;
+  createdAt: string;
 }
 
 export interface ImpactStats {
-  booksExchanged: number;
-  studentsReached: number;
-  activeCommunities: number;
-  updatedAt: string;
+  totalListings: number;
+  totalExchangesCompleted: number;
+  totalActiveDonors: number;
+  totalActiveRecipients: number;
+  computedAt: string;
 }
 
 export interface ReportPayload {
-  targetType: "listing" | "user";
+  targetType: ReportTargetType;
   targetId: string;
-  reason: string;
+  reason: ReportReason;
   detail?: string;
+}
+
+export interface HealthStatus {
+  status: "ok" | "degraded";
+  database: boolean;
 }
 
 export interface AuthTokens {
   accessToken: string;
-  accessTokenExpiresAt: string;
 }
 
+/** Every API error response shares this shape (see API_REFERENCE.md). */
 export interface ApiError {
   status: number;
+  detail: string | Record<string, string[]> | string[];
   code: string;
-  message: string;
-  fieldErrors?: Record<string, string[]>;
+  errors?: Record<string, string[]>;
 }

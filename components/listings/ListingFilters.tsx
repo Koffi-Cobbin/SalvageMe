@@ -3,39 +3,28 @@
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Select, Button } from "@/components/ui";
-
-const categoryOptions = [
-  { value: "", label: "All categories" },
-  { value: "Fiction", label: "Fiction" },
-  { value: "Science", label: "Science" },
-  { value: "Mathematics", label: "Mathematics" },
-  { value: "History", label: "History" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { Select, Input, Button } from "@/components/ui";
 
 const conditionOptions = [
   { value: "", label: "Any condition" },
   { value: "new", label: "New" },
-  { value: "like_new", label: "Like New" },
   { value: "good", label: "Good" },
   { value: "fair", label: "Fair" },
   { value: "worn", label: "Worn" },
-];
-
-const gradeOptions = [
-  { value: "", label: "Any grade level" },
-  { value: "pre_k", label: "Pre-K" },
-  { value: "elementary", label: "Elementary" },
-  { value: "middle_school", label: "Middle School" },
-  { value: "high_school", label: "High School" },
-  { value: "college", label: "College" },
-  { value: "adult_education", label: "Adult Education" },
 ];
 
 export function ListingFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [gradeLevel, setGradeLevel] = useState(searchParams.get("gradeLevel") ?? "");
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => apiClient.listCategories(),
+  });
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,7 +51,10 @@ export function ListingFilters() {
         <div className="flex flex-col gap-4 rounded-xl2 border border-paper-300 bg-white p-4">
           <Select
             label="Category"
-            options={categoryOptions}
+            options={[
+              { value: "", label: "All categories" },
+              ...(categories?.map((c) => ({ value: c.slug, label: c.name })) ?? []),
+            ]}
             defaultValue={searchParams.get("category") ?? ""}
             onChange={(e) => updateParam("category", e.target.value)}
           />
@@ -72,11 +64,12 @@ export function ListingFilters() {
             defaultValue={searchParams.get("condition") ?? ""}
             onChange={(e) => updateParam("condition", e.target.value)}
           />
-          <Select
+          <Input
             label="Grade level"
-            options={gradeOptions}
-            defaultValue={searchParams.get("gradeLevel") ?? ""}
-            onChange={(e) => updateParam("gradeLevel", e.target.value)}
+            placeholder="e.g. 9th-10th grade"
+            value={gradeLevel}
+            onChange={(e) => setGradeLevel(e.target.value)}
+            onBlur={() => updateParam("gradeLevel", gradeLevel)}
           />
         </div>
       </div>

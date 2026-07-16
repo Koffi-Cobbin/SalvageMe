@@ -37,9 +37,17 @@ export function SiteHeader() {
 
         <div className="hidden items-center gap-3 md:flex">
           {status === "authenticated" ? (
-            <Link href="/dashboard">
-              <Button variant="secondary" size="sm">Dashboard</Button>
-            </Link>
+            <>
+              <Link href="/requests" className="text-sm font-medium text-ink-700 hover:text-terracotta-600">
+                Requests
+              </Link>
+              <Link href="/exchanges" className="text-sm font-medium text-ink-700 hover:text-terracotta-600">
+                Exchanges
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="secondary" size="sm">Dashboard</Button>
+              </Link>
+            </>
           ) : (
             <>
               <Link href="/login" className="text-sm font-medium text-ink-700 hover:text-terracotta-600">

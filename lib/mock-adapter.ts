@@ -1,104 +1,123 @@
 import type { ApiAdapter } from "./api-client";
+import { ApiClientError } from "./api-client";
 import type {
-  AuthTokens,
+  BookRequest,
+  Category,
   DropoffPoint,
   Exchange,
-  ExchangeRequest,
   ImpactStats,
   Listing,
+  ListingImage,
+  Rating,
   User,
 } from "@/types";
 
-// Simple in-memory dataset. Swapping to the live Django API requires no
-// component changes — only flipping NEXT_PUBLIC_API_MODE to "live" and
-// setting NEXT_PUBLIC_API_BASE_URL (see README).
+// In-memory dataset for local development without the live backend. Set
+// NEXT_PUBLIC_API_MODE=mock to use this instead of the real API.
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
 const currentUser: User = {
-  id: "u_1",
-  displayName: "Ama Boateng",
+  id: "1",
+  username: "ama_boateng",
+  email: "ama@example.com",
+  role: "both",
+  phone: "+233 20 000 0000",
+  isVerified: true,
   avatarUrl: null,
-  verified: true,
-  memberSince: "2025-02-10T00:00:00Z",
-  city: "Accra",
+  latitude: 5.6037,
+  longitude: -0.187,
+  dateJoined: "2026-02-10T00:00:00Z",
 };
 
+const categories: Category[] = [
+  { id: "1", name: "Fiction", slug: "fiction" },
+  { id: "2", name: "Textbooks", slug: "textbooks" },
+  { id: "3", name: "Science", slug: "science" },
+  { id: "4", name: "Mathematics", slug: "mathematics" },
+];
+const [catFiction, catTextbooks, catScience, catMath] = categories as [Category, Category, Category, Category];
+
 const owners = {
-  u_2: { id: "u_2", displayName: "Kwesi Mensah", avatarUrl: null, verified: true },
-  u_3: { id: "u_3", displayName: "Nana Adjei", avatarUrl: null, verified: false },
-} satisfies Record<string, Pick<User, "id" | "displayName" | "avatarUrl" | "verified">>;
+  u2: { id: "2", username: "kwesi_mensah", role: "donor" as const, isVerified: true, dateJoined: "2026-01-01T00:00:00Z" },
+  u3: { id: "3", username: "nana_adjei", role: "donor" as const, isVerified: false, dateJoined: "2026-01-05T00:00:00Z" },
+};
 
 let listings: Listing[] = [
   {
-    id: "l_1",
+    id: "1",
+    owner: owners.u2,
     title: "Complete Set — JHS Integrated Science (Grades 7-9)",
     description:
-      "Three-year set, lightly used, all pages intact. A few pencil notes in the margins that erase easily. Great for a school library or a family with multiple kids moving through JHS.",
-    category: "Science",
+      "Three-year set, lightly used, all pages intact. A few pencil notes in the margins that erase easily.",
+    category: catScience,
+    gradeLevel: "7th-9th grade",
     condition: "good",
-    gradeLevel: "middle_school",
     status: "available",
-    images: [{ id: "img_1", url: "/mock/books-science.jpg", alt: "Stack of three integrated science textbooks" }],
-    owner: owners.u_2,
-    location: { city: "Accra", lat: 5.6037, lng: -0.187 },
+    images: [{ id: "1", url: "/mock/books-science.jpg", order: 0 }],
+    distanceKm: null,
     createdAt: "2026-06-20T09:00:00Z",
     updatedAt: "2026-06-20T09:00:00Z",
   },
   {
-    id: "l_2",
+    id: "2",
+    owner: owners.u3,
     title: "Beginner Reader Bundle (10 books)",
-    description:
-      "Ten early-reader storybooks, great condition, perfect for a home library or a community reading corner.",
-    category: "Fiction",
-    condition: "like_new",
-    gradeLevel: "elementary",
+    description: "Ten early-reader storybooks, great condition, perfect for a home library.",
+    category: catFiction,
+    gradeLevel: "Elementary",
+    condition: "new",
     status: "pending",
-    images: [{ id: "img_2", url: "/mock/books-reader.jpg", alt: "Ten colorful early reader storybooks" }],
-    owner: owners.u_3,
-    location: { city: "Kumasi", lat: 6.6885, lng: -1.6244 },
+    images: [{ id: "2", url: "/mock/books-reader.jpg", order: 0 }],
+    distanceKm: null,
     createdAt: "2026-06-18T09:00:00Z",
     updatedAt: "2026-06-22T09:00:00Z",
   },
   {
-    id: "l_3",
+    id: "3",
+    owner: owners.u2,
     title: "Intro to Algebra — Student Edition",
-    description: "Single copy, some highlighting in chapters 1-3, otherwise clean. Cover slightly worn.",
-    category: "Mathematics",
+    description: "Single copy, some highlighting in chapters 1-3, otherwise clean.",
+    category: catMath,
+    gradeLevel: "9th-10th grade",
     condition: "fair",
-    gradeLevel: "high_school",
     status: "claimed",
-    images: [{ id: "img_3", url: "/mock/books-algebra.jpg", alt: "Algebra textbook with worn cover" }],
-    owner: owners.u_2,
-    location: { city: "Accra", lat: 5.56, lng: -0.2057 },
+    images: [{ id: "3", url: "/mock/books-algebra.jpg", order: 0 }],
+    distanceKm: null,
     createdAt: "2026-06-10T09:00:00Z",
     updatedAt: "2026-06-25T09:00:00Z",
   },
 ];
 
-const requests: ExchangeRequest[] = [];
+const requests: BookRequest[] = [];
 const exchanges: Exchange[] = [];
+const ratings: Rating[] = [];
 
 const dropoffPoints: DropoffPoint[] = [
-  { id: "d_1", name: "Accra Central Library", address: "High St, Accra", lat: 5.5427, lng: -0.2062, hours: "Mon–Sat 9am–5pm" },
-  { id: "d_2", name: "Kumasi Community Hub", address: "Adum, Kumasi", lat: 6.6928, lng: -1.6248, hours: "Mon–Fri 10am–6pm" },
+  { id: "1", name: "Accra Central Library", address: "High St, Accra", latitude: 5.5427, longitude: -0.2062 },
+  { id: "2", name: "Kumasi Community Hub", address: "Adum, Kumasi", latitude: 6.6928, longitude: -1.6248 },
 ];
 
+function notFound(): never {
+  throw new ApiClientError(404, "not_found", "Not found");
+}
+
 export const mockAdapter: ApiAdapter = {
-  async login(email) {
-    await delay();
-    const tokens: AuthTokens = { accessToken: "mock-token", accessTokenExpiresAt: new Date(Date.now() + 3600_000).toISOString() };
-    return { user: { ...currentUser }, tokens };
-  },
   async register(input) {
     await delay();
-    const user: User = { ...currentUser, displayName: input.displayName, verified: false };
-    const tokens: AuthTokens = { accessToken: "mock-token", accessTokenExpiresAt: new Date(Date.now() + 3600_000).toISOString() };
-    return { user, tokens };
+    const user: User = { ...currentUser, username: input.username, role: input.role ?? "both", isVerified: false };
+    return { user, tokens: { accessToken: "mock-token" } };
+  },
+  async login() {
+    await delay();
+    return { user: currentUser, tokens: { accessToken: "mock-token" } };
   },
   async refresh() {
     await delay(100);
-    return { accessToken: "mock-token", accessTokenExpiresAt: new Date(Date.now() + 3600_000).toISOString() };
+    return { accessToken: "mock-token" };
+  },
+  async logout() {
+    await delay(100);
   },
   async me() {
     await delay(100);
@@ -110,37 +129,43 @@ export const mockAdapter: ApiAdapter = {
     return currentUser;
   },
 
+  async listCategories() {
+    await delay(100);
+    return categories;
+  },
+
   async listListings(query) {
     await delay();
     let results = [...listings];
-    if (query.category) results = results.filter((l) => l.category === query.category);
+    if (query.category) results = results.filter((l) => l.category.slug === query.category);
     if (query.condition) results = results.filter((l) => l.condition === query.condition);
     if (query.gradeLevel) results = results.filter((l) => l.gradeLevel === query.gradeLevel);
     if (query.q) {
       const q = query.q.toLowerCase();
       results = results.filter((l) => l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q));
     }
-    return { results, nextCursor: null };
+    return { results, nextCursorUrl: null, previousCursorUrl: null };
   },
   async getListing(id) {
     await delay();
     const found = listings.find((l) => l.id === id);
-    if (!found) throw Object.assign(new Error("Not found"), { status: 404 });
+    if (!found) notFound();
     return found;
   },
   async createListing(input) {
     await delay();
+    const category = categories.find((c) => c.id === input.categoryId) ?? catFiction;
     const listing: Listing = {
-      id: `l_${listings.length + 1}`,
-      title: input.title ?? "Untitled listing",
-      description: input.description ?? "",
-      category: input.category ?? "Other",
-      condition: input.condition ?? "good",
-      gradeLevel: input.gradeLevel ?? "elementary",
+      id: String(listings.length + 1),
+      owner: { id: currentUser.id, username: currentUser.username, role: currentUser.role, isVerified: currentUser.isVerified, dateJoined: currentUser.dateJoined },
+      title: input.title,
+      description: input.description,
+      category,
+      gradeLevel: input.gradeLevel ?? null,
+      condition: input.condition,
       status: "available",
-      images: input.images ?? [],
-      owner: { id: currentUser.id, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl, verified: currentUser.verified },
-      location: input.location ?? null,
+      images: [],
+      distanceKm: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -149,87 +174,138 @@ export const mockAdapter: ApiAdapter = {
   },
   async updateListing(id, patch) {
     await delay();
-    listings = listings.map((l) => (l.id === id ? { ...l, ...patch, updatedAt: new Date().toISOString() } : l));
-    return listings.find((l) => l.id === id)!;
+    listings = listings.map((l) => {
+      if (l.id !== id) return l;
+      const category = patch.categoryId ? categories.find((c) => c.id === patch.categoryId) ?? l.category : l.category;
+      return {
+        ...l,
+        ...patch,
+        category,
+        updatedAt: new Date().toISOString(),
+      } as Listing;
+    });
+    const found = listings.find((l) => l.id === id);
+    if (!found) notFound();
+    return found;
   },
   async deleteListing(id) {
     await delay();
-    listings = listings.filter((l) => l.id !== id);
+    listings = listings.map((l) => (l.id === id ? { ...l, status: "removed" } : l));
+  },
+  async uploadListingPhoto(listingId, file) {
+    await delay();
+    const image: ListingImage = { id: `${listingId}-${Date.now()}`, url: URL.createObjectURL(file), order: 0 };
+    listings = listings.map((l) => (l.id === listingId ? { ...l, images: [...l.images, image] } : l));
+    return image;
   },
 
   async requestListing(listingId, message) {
     await delay();
-    const listing = listings.find((l) => l.id === listingId)!;
-    const req: ExchangeRequest = {
-      id: `r_${requests.length + 1}`,
+    const listing = listings.find((l) => l.id === listingId);
+    if (!listing) notFound();
+    const req: BookRequest = {
+      id: String(requests.length + 1),
       listingId,
-      listing: { id: listing.id, title: listing.title, images: listing.images, status: listing.status },
-      requester: { id: currentUser.id, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl },
-      donor: listing.owner,
+      listingTitle: listing.title,
+      requester: { id: currentUser.id, username: currentUser.username, role: currentUser.role, isVerified: currentUser.isVerified, dateJoined: currentUser.dateJoined },
       status: "pending",
-      message,
+      message: message ?? "",
       createdAt: new Date().toISOString(),
     };
     requests.push(req);
     return req;
   },
+  async listRequests() {
+    await delay();
+    return { results: requests, nextCursorUrl: null, previousCursorUrl: null };
+  },
+  async getRequest(id) {
+    await delay();
+    const req = requests.find((r) => r.id === id);
+    if (!req) notFound();
+    return req;
+  },
   async acceptRequest(requestId) {
     await delay();
-    const req = requests.find((r) => r.id === requestId)!;
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) notFound();
     req.status = "accepted";
+    const listing = listings.find((l) => l.id === req.listingId)!;
+    listing.status = "pending";
     exchanges.push({
-      id: `e_${exchanges.length + 1}`,
-      requestId: req.id,
-      listing: req.listing,
-      status: "scheduling",
-      scheduledFor: null,
-      isFlexible: true,
+      id: String(exchanges.length + 1),
+      listingId: req.listingId,
+      listingTitle: req.listingTitle,
+      donor: listing.owner,
+      recipient: req.requester,
       dropoffPoint: null,
-      rating: null,
-      counterparty: req.requester,
+      status: "scheduled",
+      scheduledAt: null,
+      completedAt: null,
+      counterpartContact: { username: req.requester.username, phone: "+233 20 000 0000", latitude: 5.6, longitude: -0.19 },
     });
     return req;
   },
   async declineRequest(requestId) {
     await delay();
-    const req = requests.find((r) => r.id === requestId)!;
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) notFound();
     req.status = "declined";
     return req;
   },
-  async listRequests() {
-    await delay();
-    return {
-      incoming: requests.filter((r) => r.donor.id === currentUser.id),
-      sent: requests.filter((r) => r.requester.id === currentUser.id),
-    };
-  },
 
-  async scheduleExchange(exchangeId, input) {
+  async listExchanges() {
     await delay();
-    const ex = exchanges.find((e) => e.id === exchangeId)!;
-    ex.scheduledFor = input.scheduledFor;
-    ex.isFlexible = input.isFlexible;
-    ex.dropoffPoint = dropoffPoints.find((d) => d.id === input.dropoffPointId) ?? null;
-    ex.status = "scheduled";
-    return ex;
-  },
-  async completeExchange(exchangeId) {
-    await delay();
-    const ex = exchanges.find((e) => e.id === exchangeId)!;
-    ex.status = "completed";
-    return ex;
-  },
-  async cancelExchange(exchangeId) {
-    await delay();
-    const ex = exchanges.find((e) => e.id === exchangeId)!;
-    ex.status = "cancelled";
-    return ex;
+    return { results: exchanges, nextCursorUrl: null, previousCursorUrl: null };
   },
   async getExchange(id) {
     await delay();
     const ex = exchanges.find((e) => e.id === id);
-    if (!ex) throw Object.assign(new Error("Not found"), { status: 404 });
+    if (!ex) notFound();
     return ex;
+  },
+  async scheduleExchange(exchangeId, input) {
+    await delay();
+    const ex = exchanges.find((e) => e.id === exchangeId);
+    if (!ex) notFound();
+    ex.scheduledAt = input.scheduledAt;
+    ex.dropoffPoint = input.dropoffPointId ? dropoffPoints.find((d) => d.id === input.dropoffPointId) ?? null : null;
+    return ex;
+  },
+  async completeExchange(exchangeId) {
+    await delay();
+    const ex = exchanges.find((e) => e.id === exchangeId);
+    if (!ex) notFound();
+    ex.status = "completed";
+    ex.completedAt = new Date().toISOString();
+    const listing = listings.find((l) => l.id === ex.listingId);
+    if (listing) listing.status = "claimed";
+    return ex;
+  },
+  async cancelExchange(exchangeId) {
+    await delay();
+    const ex = exchanges.find((e) => e.id === exchangeId);
+    if (!ex) notFound();
+    ex.status = "cancelled";
+    const listing = listings.find((l) => l.id === ex.listingId);
+    if (listing) listing.status = "available";
+    return ex;
+  },
+  async rateExchange(exchangeId, input) {
+    await delay();
+    const ex = exchanges.find((e) => e.id === exchangeId);
+    if (!ex) notFound();
+    const rating: Rating = {
+      id: String(ratings.length + 1),
+      ratedUserId: ex.donor.id === currentUser.id ? ex.recipient.id : ex.donor.id,
+      ratedById: currentUser.id,
+      exchangeId,
+      score: input.score,
+      comment: input.comment ?? "",
+      createdAt: new Date().toISOString(),
+    };
+    ratings.push(rating);
+    return rating;
   },
 
   async listDropoffPoints() {
@@ -242,10 +318,15 @@ export const mockAdapter: ApiAdapter = {
   async getImpactStats(): Promise<ImpactStats> {
     await delay();
     return {
-      booksExchanged: 4820,
-      studentsReached: 1930,
-      activeCommunities: 37,
-      updatedAt: new Date().toISOString(),
+      totalListings: listings.length,
+      totalExchangesCompleted: exchanges.filter((e) => e.status === "completed").length,
+      totalActiveDonors: 23,
+      totalActiveRecipients: 31,
+      computedAt: new Date().toISOString(),
     };
+  },
+  async getHealth() {
+    await delay(50);
+    return { status: "ok", database: true };
   },
 };

@@ -13,7 +13,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
           {image ? (
             <Image
               src={image.url}
-              alt={image.alt}
+              alt={listing.title}
               fill
               sizes="(max-width: 640px) 100vw, 33vw"
               className="object-cover"
@@ -29,10 +29,13 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <h3 className="line-clamp-2 font-semibold text-ink-900">{listing.title}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <ConditionBadge condition={listing.condition} />
-            {listing.location && (
+            {listing.gradeLevel && (
+              <span className="text-xs text-ink-700/70">{listing.gradeLevel}</span>
+            )}
+            {listing.distanceKm != null && (
               <span className="inline-flex items-center gap-1 text-xs text-ink-700/70">
                 <MapPin size={12} aria-hidden="true" />
-                {listing.location.city}
+                {listing.distanceKm.toFixed(1)} km away
               </span>
             )}
           </div>

@@ -7,6 +7,7 @@ import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { Button, Input, Select } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
+import type { ListingCondition } from "@/types";
 
 export default function EditListingPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,22 +19,27 @@ export default function EditListingPage() {
     queryKey: ["listing", id],
     queryFn: () => apiClient.getListing(id),
   });
+  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => apiClient.listCategories() });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [condition, setCondition] = useState("good");
+  const [condition, setCondition] = useState<ListingCondition>("good");
+  const [categoryId, setCategoryId] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
 
   useEffect(() => {
     if (listing) {
       setTitle(listing.title);
       setDescription(listing.description);
       setCondition(listing.condition);
+      setCategoryId(listing.category.id);
+      setGradeLevel(listing.gradeLevel ?? "");
     }
   }, [listing]);
 
   const update = useMutation({
     mutationFn: () =>
-      apiClient.updateListing(id, { title, description, condition: condition as never }),
+      apiClient.updateListing(id, { title, description, condition, categoryId, gradeLevel: gradeLevel || undefined }),
     onSuccess: () => {
       push("Listing updated.", "success");
       router.push(`/listings/${id}`);
@@ -53,9 +59,8 @@ export default function EditListingPage() {
   if (isLoading) return <p className="container-page py-10 text-ink-700/70">Loading…</p>;
   if (!listing) return <p className="container-page py-10">Listing not found.</p>;
 
-  // The API enforces ownership server-side; this client check only avoids
-  // flashing an edit form the user can't actually save (handles the eventual
-  // 403 gracefully too via the mutation's onError).
+  // The API enforces ownership server-side (403 on PATCH/DELETE); this
+  // client check only avoids flashing an edit form the user can't save.
   if (user && listing.owner.id !== user.id) {
     return <p className="container-page py-10">You don&apos;t have permission to edit this listing.</p>;
   }
@@ -73,17 +78,23 @@ export default function EditListingPage() {
         <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
         <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} required />
         <Select
+          label="Category"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          options={categories?.map((c) => ({ value: c.id, label: c.name })) ?? []}
+        />
+        <Select
           label="Condition"
           value={condition}
-          onChange={(e) => setCondition(e.target.value)}
+          onChange={(e) => setCondition(e.target.value as ListingCondition)}
           options={[
             { value: "new", label: "New" },
-            { value: "like_new", label: "Like New" },
             { value: "good", label: "Good" },
             { value: "fair", label: "Fair" },
             { value: "worn", label: "Worn" },
           ]}
         />
+        <Input label="Grade level (optional)" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} />
         <div className="mt-2 flex justify-between">
           <Button type="button" variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
             Delete listing

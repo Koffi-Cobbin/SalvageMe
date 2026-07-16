@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { MapPin, Flag } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { ListingStatusBadge, ConditionBadge, VerifiedBadge, Avatar } from "@/components/ui";
 import { RequestListingButton } from "@/components/listings/RequestListingButton";
+import { ReportButton } from "@/components/listings/ReportButton";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
@@ -47,7 +48,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
           {listing.images[0] ? (
             <Image
               src={listing.images[0].url}
-              alt={listing.images[0].alt}
+              alt={listing.title}
               fill
               priority
               sizes="(max-width: 1024px) 100vw, 60vw"
@@ -61,32 +62,31 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <ListingStatusBadge status={listing.status} />
           <ConditionBadge condition={listing.condition} />
+          <span className="text-xs text-ink-700/60">{listing.category.name}</span>
+          {listing.gradeLevel && <span className="text-xs text-ink-700/60">· {listing.gradeLevel}</span>}
         </div>
 
         <h1 className="mt-3 text-display-md">{listing.title}</h1>
 
-        {listing.location && (
+        {listing.distanceKm != null && (
           <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink-700/80">
             <MapPin size={15} aria-hidden="true" />
-            {listing.location.city}
+            {listing.distanceKm.toFixed(1)} km away
           </p>
         )}
 
         <p className="mt-5 whitespace-pre-line text-ink-800">{listing.description}</p>
 
-        <button className="mt-6 inline-flex items-center gap-1.5 text-sm text-ink-700/70 hover:text-rose-700">
-          <Flag size={14} aria-hidden="true" />
-          Report this listing
-        </button>
+        <ReportButton targetType="listing" targetId={listing.id} />
       </div>
 
       <aside className="flex flex-col gap-5">
         <div className="rounded-xl2 border border-paper-300 bg-white p-5">
           <div className="flex items-center gap-3">
-            <Avatar name={listing.owner.displayName} src={listing.owner.avatarUrl} />
+            <Avatar name={listing.owner.username} />
             <div>
-              <p className="font-semibold text-ink-900">{listing.owner.displayName}</p>
-              {listing.owner.verified && <VerifiedBadge />}
+              <p className="font-semibold text-ink-900">{listing.owner.username}</p>
+              {listing.owner.isVerified && <VerifiedBadge />}
             </div>
           </div>
           <div className="mt-5">
@@ -94,7 +94,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
               <RequestListingButton listingId={listing.id} />
             ) : (
               <p className="rounded-lg bg-paper-100 px-4 py-3 text-sm text-ink-700">
-                This item is {listing.status === "pending" ? "pending a request" : "already claimed"}.
+                This item is {listing.status === "pending" ? "pending a request" : "no longer available"}.
               </p>
             )}
           </div>

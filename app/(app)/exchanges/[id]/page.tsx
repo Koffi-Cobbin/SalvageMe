@@ -3,26 +3,39 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { Star, Phone, MapPin } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
+import { useSessionStore } from "@/lib/stores/session-store";
 import { Button, Card, Select, Input } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
+
+const statusLabel: Record<string, string> = {
+  scheduled: "Scheduled",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  no_show: "No-show",
+};
 
 export default function ExchangeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const push = useToastStore((s) => s.push);
-  const [isFlexible, setIsFlexible] = useState(true);
+  const { user } = useSessionStore();
+  const [scheduledAt, setScheduledAt] = useState("");
   const [dropoffPointId, setDropoffPointId] = useState("");
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [hasRated, setHasRated] = useState(false);
 
   const exchangeQuery = useQuery({ queryKey: ["exchange", id], queryFn: () => apiClient.getExchange(id) });
   const dropoffsQuery = useQuery({ queryKey: ["dropoffs"], queryFn: () => apiClient.listDropoffPoints() });
 
   const schedule = useMutation({
     mutationFn: () =>
-      apiClient.scheduleExchange(id, { scheduledFor: null, isFlexible, dropoffPointId: dropoffPointId || null }),
+      apiClient.scheduleExchange(id, {
+        scheduledAt: new Date(scheduledAt).toISOString(),
+        dropoffPointId: dropoffPointId || null,
+      }),
     onSuccess: () => {
       push("Exchange scheduled.", "success");
       queryClient.invalidateQueries({ queryKey: ["exchange", id] });
@@ -36,52 +49,117 @@ export default function ExchangeDetailPage() {
       push("Marked as complete — thanks for closing the loop!", "success");
       queryClient.invalidateQueries({ queryKey: ["exchange", id] });
     },
-    onError: (err) => push(err instanceof ApiClientError ? err.message : "Couldn't mark this complete.", "error"),
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === "invalid_transition") {
+        push("This exchange isn't in a state that can be completed right now.", "info");
+      } else {
+        push(err instanceof ApiClientError ? err.message : "Couldn't mark this complete.", "error");
+      }
+    },
+  });
+
+  const cancel = useMutation({
+    mutationFn: () => apiClient.cancelExchange(id),
+    onSuccess: () => {
+      push("Exchange cancelled — the listing is available again.", "info");
+      queryClient.invalidateQueries({ queryKey: ["exchange", id] });
+    },
+    onError: (err) => push(err instanceof ApiClientError ? err.message : "Couldn't cancel this exchange.", "error"),
+  });
+
+  const rate = useMutation({
+    mutationFn: () => apiClient.rateExchange(id, { score: rating, comment: comment || undefined }),
+    onSuccess: () => {
+      push("Thanks for the feedback!", "success");
+      setHasRated(true);
+    },
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === "duplicate_rating") {
+        push("You already rated this exchange.", "info");
+        setHasRated(true);
+        return;
+      }
+      push(err instanceof ApiClientError ? err.message : "Couldn't submit your rating.", "error");
+    },
   });
 
   if (exchangeQuery.isLoading) return <p className="container-page py-10 text-ink-700/70">Loading exchange…</p>;
   const exchange = exchangeQuery.data;
   if (!exchange) return <p className="container-page py-10">Exchange not found.</p>;
 
+  const counterpart = exchange.donor.id === user?.id ? exchange.recipient : exchange.donor;
+
   return (
     <div className="container-page max-w-xl py-10">
-      <h1 className="text-display-md">{exchange.listing.title}</h1>
-      <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-ink-700/50">{exchange.status}</p>
+      <h1 className="text-display-md">{exchange.listingTitle}</h1>
+      <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-ink-700/50">
+        {statusLabel[exchange.status] ?? exchange.status} · with {counterpart.username}
+      </p>
 
-      {exchange.status === "scheduling" && (
+      {exchange.counterpartContact && (
+        <Card className="mt-4 flex flex-col gap-1.5 p-4 text-sm">
+          <p className="font-semibold text-ink-900">Coordinate the hand-off</p>
+          {exchange.counterpartContact.phone && (
+            <p className="flex items-center gap-1.5 text-ink-700">
+              <Phone size={14} aria-hidden="true" /> {exchange.counterpartContact.phone}
+            </p>
+          )}
+          {exchange.counterpartContact.latitude != null && (
+            <p className="flex items-center gap-1.5 text-ink-700">
+              <MapPin size={14} aria-hidden="true" /> Shared once you&apos;re both party to this exchange
+            </p>
+          )}
+        </Card>
+      )}
+
+      {exchange.status === "scheduled" && !exchange.scheduledAt && (
         <Card className="mt-6 flex flex-col gap-4 p-5">
           <h2 className="font-semibold">Schedule the hand-off</h2>
+          <Input
+            label="Date &amp; time"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            required
+          />
           <Select
-            label="Drop-off point"
+            label="Drop-off point (optional)"
             options={[
-              { value: "", label: "Choose a location" },
-              ...(dropoffsQuery.data?.map((d) => ({ value: d.id, label: `${d.name} — ${d.hours}` })) ?? []),
+              { value: "", label: "Arrange directly instead" },
+              ...(dropoffsQuery.data?.map((d) => ({ value: d.id, label: `${d.name} — ${d.address}` })) ?? []),
             ]}
             value={dropoffPointId}
             onChange={(e) => setDropoffPointId(e.target.value)}
           />
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isFlexible} onChange={(e) => setIsFlexible(e.target.checked)} />
-            I&apos;m flexible on timing
-          </label>
-          <Button loading={schedule.isPending} onClick={() => schedule.mutate()}>
+          <Button loading={schedule.isPending} disabled={!scheduledAt} onClick={() => schedule.mutate()}>
             Confirm schedule
           </Button>
         </Card>
       )}
 
-      {exchange.status === "scheduled" && (
+      {exchange.status === "scheduled" && exchange.scheduledAt && (
         <Card className="mt-6 flex flex-col gap-4 p-5">
           <p className="text-sm text-ink-800">
-            Meeting at <strong>{exchange.dropoffPoint?.name ?? "a time you arrange directly"}</strong>.
+            Meeting {new Date(exchange.scheduledAt).toLocaleString()}
+            {exchange.dropoffPoint && (
+              <>
+                {" "}at <strong>{exchange.dropoffPoint.name}</strong>
+              </>
+            )}
+            .
           </p>
-          <Button loading={complete.isPending} onClick={() => complete.mutate()}>
-            Mark exchange complete
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" loading={cancel.isPending} onClick={() => cancel.mutate()}>
+              Cancel
+            </Button>
+            <Button loading={complete.isPending} onClick={() => complete.mutate()}>
+              Mark exchange complete
+            </Button>
+          </div>
         </Card>
       )}
 
-      {exchange.status === "completed" && !exchange.rating && (
+      {exchange.status === "completed" && !hasRated && (
         <Card className="mt-6 flex flex-col gap-4 p-5">
           <h2 className="font-semibold">Rate this exchange</h2>
           <div className="flex gap-1" role="radiogroup" aria-label="Rating out of 5">
@@ -99,11 +177,7 @@ export default function ExchangeDetailPage() {
             ))}
           </div>
           <Input label="Comment (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
-          <Button
-            onClick={() =>
-              push("Thanks for the feedback! (rating submission wired to a follow-up endpoint)", "info")
-            }
-          >
+          <Button loading={rate.isPending} onClick={() => rate.mutate()}>
             Submit rating
           </Button>
         </Card>
