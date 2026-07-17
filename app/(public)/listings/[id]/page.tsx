@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { ListingStatusBadge, ConditionBadge, VerifiedBadge, Avatar } from "@/components/ui";
 import { RequestListingButton } from "@/components/listings/RequestListingButton";
 import { ReportButton } from "@/components/listings/ReportButton";
+import { ListingGallery } from "@/components/listings/ListingGallery";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
@@ -44,20 +44,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
   return (
     <div className="container-page grid gap-8 py-10 lg:grid-cols-[1fr_360px]">
       <div>
-        <div className="relative h-72 w-full overflow-hidden rounded-xl2 bg-paper-200 sm:h-96">
-          {listing.images[0] ? (
-            <Image
-              src={listing.images[0].url}
-              alt={listing.title}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 60vw"
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-ink-700/50">No photo available</div>
-          )}
-        </div>
+        <ListingGallery images={listing.images} title={listing.title} />
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <ListingStatusBadge status={listing.status} />

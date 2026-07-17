@@ -54,7 +54,11 @@ let listings: Listing[] = [
     gradeLevel: "7th-9th grade",
     condition: "good",
     status: "available",
-    images: [{ id: "1", url: "/mock/books-science.jpg", order: 0 }],
+    images: [
+      { id: "1", url: "/mock/books-science.jpg", order: 0 },
+      { id: "1b", url: "/mock/books-science-2.jpg", order: 1 },
+      { id: "1c", url: "/mock/books-science-3.jpg", order: 2 },
+    ],
     distanceKm: null,
     createdAt: "2026-06-20T09:00:00Z",
     updatedAt: "2026-06-20T09:00:00Z",

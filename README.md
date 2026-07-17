@@ -104,6 +104,22 @@ in `types/index.ts` and `lib/api-client.ts`:
 - Impact-stats fields, error-response shape (`detail`/`code`/`errors`), and the health-check's separate
   base path (`/api/health/`, not under `/api/v1/`) are all reflected in `lib/api-client.ts`.
 
+## Gallery section (this pass)
+
+- **`components/listings/ListingGallery.tsx`**: the listing detail page now shows a real gallery instead
+  of just the first photo — a main image plus a thumbnail strip (only rendered when there's more than
+  one photo) that switches the main image on click, with `role="tablist"`/`role="tab"` for accessibility.
+  This was actually part of the original spec ("Image gallery with lazy-loaded, responsive `next/image`")
+  that hadn't been implemented, since the earlier single-photo upload flow meant there was rarely more
+  than one image to show.
+- **`components/listings/PhotoPicker.tsx`**: a new shared multi-photo picker (add/remove, live previews,
+  compression on select, capped at 6 photos) used by both the create-listing form (step 2 is now "add
+  photos", plural) and the edit-listing form (a new read-only gallery of existing photos plus this picker
+  to add more). Photos are still uploaded one-at-a-time to `POST /listings/{id}/photos/` after creation
+  (or immediately on edit), since that's the only upload endpoint the API exposes.
+- There's still no endpoint to delete or reorder an individual photo once uploaded (confirmed in
+  `API_REFERENCE.md`) — existing photos in the edit form are shown read-only for now.
+
 ## Verified in this pass
 
 - `npm run typecheck`, `npm run lint`, and `npm run build` all pass clean against the real API's types.

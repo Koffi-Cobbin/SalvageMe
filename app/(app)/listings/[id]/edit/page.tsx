@@ -2,16 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import Image from "next/image";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { Button, Input, Select } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
+import { PhotoPicker, type PickedPhoto } from "@/components/listings/PhotoPicker";
 import type { ListingCondition } from "@/types";
 
 export default function EditListingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const push = useToastStore((s) => s.push);
   const { user } = useSessionStore();
 
@@ -26,6 +29,7 @@ export default function EditListingPage() {
   const [condition, setCondition] = useState<ListingCondition>("good");
   const [categoryId, setCategoryId] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
+  const [newPhotos, setNewPhotos] = useState<PickedPhoto[]>([]);
 
   useEffect(() => {
     if (listing) {
@@ -54,6 +58,31 @@ export default function EditListingPage() {
       router.push("/dashboard");
     },
     onError: (err) => push(err instanceof ApiClientError ? err.message : "Couldn't remove this listing.", "error"),
+  });
+
+  const uploadPhotos = useMutation({
+    mutationFn: async () => {
+      let failures = 0;
+      for (const photo of newPhotos) {
+        try {
+          await apiClient.uploadListingPhoto(id, photo.file);
+        } catch {
+          failures += 1;
+        }
+      }
+      return failures;
+    },
+    onSuccess: (failures) => {
+      newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setNewPhotos([]);
+      queryClient.invalidateQueries({ queryKey: ["listing", id] });
+      if (failures > 0) {
+        push(`${failures} of the selected photos failed to upload — try again for those.`, "error");
+      } else {
+        push("Photos added.", "success");
+      }
+    },
+    onError: () => push("Couldn't upload those photos. Please try again.", "error"),
   });
 
   if (isLoading) return <p className="container-page py-10 text-ink-700/70">Loading…</p>;
@@ -95,6 +124,37 @@ export default function EditListingPage() {
           ]}
         />
         <Input label="Grade level (optional)" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} />
+
+        <div className="border-t border-paper-300 pt-4">
+          <p className="mb-3 text-sm font-medium text-ink-800">Photos</p>
+
+          {listing.images.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-3">
+              {[...listing.images]
+                .sort((a, b) => a.order - b.order)
+                .map((img, i) => (
+                  <div key={img.id} className="relative h-24 w-24 overflow-hidden rounded-xl2 border border-paper-300">
+                    <Image src={img.url} alt={`${listing.title} photo ${i + 1}`} fill sizes="96px" className="object-cover" />
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <PhotoPicker photos={newPhotos} onChange={setNewPhotos} />
+          {newPhotos.length > 0 && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              loading={uploadPhotos.isPending}
+              onClick={() => uploadPhotos.mutate()}
+            >
+              Upload {newPhotos.length} photo{newPhotos.length > 1 ? "s" : ""}
+            </Button>
+          )}
+        </div>
+
         <div className="mt-2 flex justify-between">
           <Button type="button" variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
             Delete listing

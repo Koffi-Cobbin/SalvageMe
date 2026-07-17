@@ -5,7 +5,12 @@ export default function ListingDetailLoading() {
     <div className="container-page grid gap-8 py-10 lg:grid-cols-[1fr_360px]">
       <div>
         <Skeleton className="h-72 w-full rounded-xl2 sm:h-96" />
-        <div className="mt-5 flex gap-2">
+        <div className="mt-3 flex gap-2">
+          <Skeleton className="h-16 w-16 rounded-lg" />
+          <Skeleton className="h-16 w-16 rounded-lg" />
+          <Skeleton className="h-16 w-16 rounded-lg" />
+        </div>
+        <div className="mt-2 flex gap-2">
           <Skeleton className="h-6 w-24 rounded-full" />
           <Skeleton className="h-6 w-20 rounded-full" />
         </div>

@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import imageCompression from "browser-image-compression";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import Image from "next/image";
-import { X } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { Button, Input, Select } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
+import { PhotoPicker, type PickedPhoto } from "@/components/listings/PhotoPicker";
 
 const schema = z.object({
   title: z.string().min(3, "Give it a short, clear title"),
@@ -31,10 +29,7 @@ export default function NewListingPage() {
   const router = useRouter();
   const push = useToastStore((s) => s.push);
   const [step, setStep] = useState(0);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [compressing, setCompressing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
 
   const [locationMode, setLocationMode] = useState<LocationMode>("none");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -71,45 +66,7 @@ export default function NewListingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Revoke the blob preview URL whenever it changes or the page unmounts,
-  // so we don't leak memory across a multi-step, possibly-abandoned form.
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
 
-  async function handleImageSelect(file: File) {
-    setCompressing(true);
-    try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.6,
-        maxWidthOrHeight: 1600,
-        useWebWorker: true,
-      });
-      setImageFile(compressed as File);
-      setPreviewUrl((old) => {
-        if (old) URL.revokeObjectURL(old);
-        return URL.createObjectURL(compressed);
-      });
-    } catch {
-      // fall back to the original file if compression fails
-      setImageFile(file);
-      setPreviewUrl((old) => {
-        if (old) URL.revokeObjectURL(old);
-        return URL.createObjectURL(file);
-      });
-    } finally {
-      setCompressing(false);
-    }
-  }
-
-  function clearImage() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setImageFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
 
   function requestCurrentLocation() {
     if (!navigator.geolocation) {
@@ -157,11 +114,20 @@ export default function NewListingPage() {
         latitude: resolvedCoords?.lat,
         longitude: resolvedCoords?.lng,
       });
-      if (imageFile) {
-        try {
-          await apiClient.uploadListingPhoto(listing.id, imageFile);
-        } catch {
-          push("Listing published, but the photo upload failed — you can add one from Edit listing.", "info");
+      if (photos.length > 0) {
+        let failures = 0;
+        for (const photo of photos) {
+          try {
+            await apiClient.uploadListingPhoto(listing.id, photo.file);
+          } catch {
+            failures += 1;
+          }
+        }
+        if (failures > 0) {
+          push(
+            `Listing published, but ${failures} of ${photos.length} photo${photos.length > 1 ? "s" : ""} failed to upload — you can add more from Edit listing.`,
+            "info",
+          );
         }
       }
       return listing;
@@ -216,39 +182,8 @@ export default function NewListingPage() {
 
         {step === 1 && (
           <>
-            <label className="text-sm font-medium text-ink-800" htmlFor="photo">
-              Add a photo (optional)
-            </label>
-            <input
-              ref={fileInputRef}
-              id="photo"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              aria-describedby="photo-hint"
-              onChange={(e) => e.target.files?.[0] && handleImageSelect(e.target.files[0])}
-            />
-            <p id="photo-hint" className="text-xs text-ink-700/70">
-              JPEG, PNG, or WebP, up to 8MB. Photos are compressed automatically to keep uploads
-              fast on slow connections.
-            </p>
-            {compressing && <p className="text-xs text-ink-700/70">Compressing photo…</p>}
-
-            {previewUrl && (
-              <div className="relative mt-1 w-40">
-                <div className="relative h-40 w-40 overflow-hidden rounded-xl2 border border-paper-300 bg-paper-100">
-                  <Image src={previewUrl} alt="Preview of the photo you selected" fill unoptimized className="object-cover" />
-                </div>
-                <button
-                  type="button"
-                  onClick={clearImage}
-                  aria-label="Remove photo"
-                  className="absolute -right-2 -top-2 rounded-full bg-ink-900 p-1 text-white shadow-card"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-
+            <p className="text-sm font-medium text-ink-800">Add photos (optional)</p>
+            <PhotoPicker photos={photos} onChange={setPhotos} />
             <div className="mt-2 flex justify-between">
               <Button type="button" variant="secondary" onClick={() => setStep(0)}>Back</Button>
               <Button type="button" onClick={() => setStep(2)}>Next: Location</Button>
