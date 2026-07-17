@@ -120,6 +120,26 @@ in `types/index.ts` and `lib/api-client.ts`:
 - There's still no endpoint to delete or reorder an individual photo once uploaded (confirmed in
   `API_REFERENCE.md`) — existing photos in the edit form are shown read-only for now.
 
+## Impact/activities Gallery page (this pass)
+
+Added a new public **`/gallery`** page for SalvageMe to post photos of donation drives, drop-off days,
+and other community activities — distinct from the per-listing photo gallery added in the previous pass.
+
+- **`app/(public)/gallery/page.tsx`**: static page, responsive photo grid, real empty state if there's
+  nothing to show yet.
+- **`components/gallery/GalleryGrid.tsx`**: grid of thumbnails that opens a full-screen, keyboard-navigable
+  lightbox (arrow keys / Escape, `role="dialog"`) with captions and optional dates.
+- **`lib/content/gallery.ts`**: there's no backend endpoint for this kind of media content
+  (`API_REFERENCE.md` covers listings/exchanges/stats, not a photo library), so — same pattern as the FAQ
+  page — it's editable config rather than hardcoded JSX. **To add a real photo**: drop the file in
+  `public/gallery/` and add an entry to this file. No redeploy-the-whole-component needed, just a data
+  edit, but it does still require a code change and redeploy (see follow-ups for the real fix).
+- Ships with **three placeholder illustrations** (`public/gallery/sample-*.jpg`, generated flat-color book
+  glyphs in the site's own palette) so the page isn't empty by default and the grid/lightbox are visibly
+  exercised — each is captioned "Sample entry" so it's unambiguous these aren't real event photos.
+  Swap or delete them once real photos are available.
+- Added to both the header nav and footer.
+
 ## Verified in this pass
 
 - `npm run typecheck`, `npm run lint`, and `npm run build` all pass clean against the real API's types.
@@ -178,6 +198,11 @@ in `types/index.ts` and `lib/api-client.ts`:
    and `/listings/[id]`. Pages under `(app)/` still show their own inline skeleton/spinner once their
    client JS takes over (since TanStack Query loading states aren't visible to `loading.tsx`); giving
    every route its own tailored `loading.tsx` instead of sharing the group-level one is a nice-to-have.
-10. **Logo is a flat JPG on a white background**, not a transparent PNG/SVG — it reads fine on the
-    `paper-50`/white header background used throughout, but would show a white box on any non-white
-    surface. Ask for a transparent version if the logo needs to sit on a colored background later.
+10. **Logo may not be transparent** — depending on the source file, it could show a white box on any
+    non-white background. Confirm/ask for a transparent version if the logo needs to sit on a colored
+    surface later.
+11. **The impact/activities Gallery has no backend or self-serve upload** — it's a code-level config file
+    (`lib/content/gallery.ts`) plus static files in `public/gallery/`, so adding a real photo currently
+    requires a code change and redeploy, not something SalvageMe's team can do without a developer. If
+    photos will be added often, this deserves a real endpoint (e.g. `POST /gallery/` behind admin auth,
+    backed by FileForge like listing photos) with the frontend swapped to fetch from it instead.

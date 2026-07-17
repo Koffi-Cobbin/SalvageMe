@@ -15,6 +15,7 @@ export function SiteFooter() {
           <ul className="flex flex-col gap-1.5 text-sm text-ink-700">
             <li><Link href="/listings" className="hover:text-terracotta-600">Browse Books</Link></li>
             <li><Link href="/how-it-works" className="hover:text-terracotta-600">How It Works</Link></li>
+            <li><Link href="/gallery" className="hover:text-terracotta-600">Gallery</Link></li>
             <li><Link href="/faq" className="hover:text-terracotta-600">FAQ</Link></li>
           </ul>
         </nav>

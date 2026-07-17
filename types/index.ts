@@ -146,6 +146,14 @@ export interface ReportPayload {
   detail?: string;
 }
 
+export interface GalleryItem {
+  id: string;
+  src: string;
+  alt: string;
+  caption: string;
+  date: string | null; // ISO date, or null if unknown
+}
+
 export interface HealthStatus {
   status: "ok" | "degraded";
   database: boolean;
