@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import imageCompression from "browser-image-compression";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Image from "next/image";
+import { X } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { Button, Input, Select } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
@@ -20,6 +22,8 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+type LocationMode = "none" | "current" | "manual";
+
 const DRAFT_KEY = "salvageme_listing_draft";
 const STEPS = ["Details", "Photos", "Location"] as const;
 
@@ -28,9 +32,16 @@ export default function NewListingPage() {
   const push = useToastStore((s) => s.push);
   const [step, setStep] = useState(0);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
-  const [useMyLocation, setUseMyLocation] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [locationMode, setLocationMode] = useState<LocationMode>("none");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => apiClient.listCategories() });
 
@@ -57,7 +68,16 @@ export default function NewListingPage() {
   useEffect(() => {
     const saved = sessionStorage.getItem(DRAFT_KEY);
     if (saved) push("Restored your unsaved draft.", "info");
-  }, [push]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Revoke the blob preview URL whenever it changes or the page unmounts,
+  // so we don't leak memory across a multi-step, possibly-abandoned form.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   async function handleImageSelect(file: File) {
     setCompressing(true);
@@ -68,26 +88,63 @@ export default function NewListingPage() {
         useWebWorker: true,
       });
       setImageFile(compressed as File);
+      setPreviewUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(compressed);
+      });
     } catch {
-      setImageFile(file); // fall back to original if compression fails
+      // fall back to the original file if compression fails
+      setImageFile(file);
+      setPreviewUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(file);
+      });
     } finally {
       setCompressing(false);
     }
   }
 
-  function requestLocation() {
+  function clearImage() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setImageFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function requestCurrentLocation() {
     if (!navigator.geolocation) {
-      push("Location isn't available in this browser.", "error");
+      setLocationError("Location isn't available in this browser — try entering coordinates manually.");
       return;
     }
+    setLocating(true);
+    setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setUseMyLocation(true);
+        setLocationMode("current");
+        setLocating(false);
       },
-      () => push("Couldn't get your location — you can still publish without it.", "error"),
+      () => {
+        setLocationError("Couldn't get your location — you can enter coordinates manually instead.");
+        setLocating(false);
+      },
     );
   }
+
+  const manualLatNum = Number(manualLat);
+  const manualLngNum = Number(manualLng);
+  const manualCoordsValid =
+    manualLat !== "" &&
+    manualLng !== "" &&
+    !Number.isNaN(manualLatNum) &&
+    !Number.isNaN(manualLngNum) &&
+    manualLatNum >= -90 &&
+    manualLatNum <= 90 &&
+    manualLngNum >= -180 &&
+    manualLngNum <= 180;
+
+  const resolvedCoords =
+    locationMode === "current" ? coords : locationMode === "manual" && manualCoordsValid ? { lat: manualLatNum, lng: manualLngNum } : null;
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
@@ -97,8 +154,8 @@ export default function NewListingPage() {
         categoryId: values.categoryId,
         condition: values.condition,
         gradeLevel: values.gradeLevel || undefined,
-        latitude: useMyLocation && coords ? coords.lat : undefined,
-        longitude: useMyLocation && coords ? coords.lng : undefined,
+        latitude: resolvedCoords?.lat,
+        longitude: resolvedCoords?.lng,
       });
       if (imageFile) {
         try {
@@ -163,6 +220,7 @@ export default function NewListingPage() {
               Add a photo (optional)
             </label>
             <input
+              ref={fileInputRef}
               id="photo"
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -174,6 +232,23 @@ export default function NewListingPage() {
               fast on slow connections.
             </p>
             {compressing && <p className="text-xs text-ink-700/70">Compressing photo…</p>}
+
+            {previewUrl && (
+              <div className="relative mt-1 w-40">
+                <div className="relative h-40 w-40 overflow-hidden rounded-xl2 border border-paper-300 bg-paper-100">
+                  <Image src={previewUrl} alt="Preview of the photo you selected" fill unoptimized className="object-cover" />
+                </div>
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  aria-label="Remove photo"
+                  className="absolute -right-2 -top-2 rounded-full bg-ink-900 p-1 text-white shadow-card"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             <div className="mt-2 flex justify-between">
               <Button type="button" variant="secondary" onClick={() => setStep(0)}>Back</Button>
               <Button type="button" onClick={() => setStep(2)}>Next: Location</Button>
@@ -184,12 +259,57 @@ export default function NewListingPage() {
         {step === 2 && (
           <>
             <p className="text-sm text-ink-700/80">
-              Sharing your location helps nearby recipients find this listing in distance-sorted
+              Sharing a location helps nearby recipients find this listing in distance-sorted
               search. It&apos;s never shown publicly — only as an approximate distance.
             </p>
-            <Button type="button" variant="secondary" onClick={requestLocation} className="self-start">
-              {coords ? "Location captured ✓" : "Use my current location"}
-            </Button>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={locationMode === "current" ? "primary" : "secondary"}
+                  loading={locating}
+                  onClick={requestCurrentLocation}
+                  size="sm"
+                >
+                  {locationMode === "current" && coords ? "Current location ✓" : "Use my current location"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={locationMode === "manual" ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={() => setLocationMode("manual")}
+                >
+                  Enter a different location
+                </Button>
+              </div>
+
+              {locationError && (
+                <p role="alert" className="text-xs font-medium text-rose-700">{locationError}</p>
+              )}
+
+              {locationMode === "manual" && (
+                <div className="mt-1 grid grid-cols-2 gap-3">
+                  <Input
+                    label="Latitude"
+                    inputMode="decimal"
+                    placeholder="e.g. 5.6037"
+                    value={manualLat}
+                    onChange={(e) => setManualLat(e.target.value)}
+                    error={manualLat !== "" && !manualCoordsValid ? "Enter a value between -90 and 90" : undefined}
+                  />
+                  <Input
+                    label="Longitude"
+                    inputMode="decimal"
+                    placeholder="e.g. -0.1870"
+                    value={manualLng}
+                    onChange={(e) => setManualLng(e.target.value)}
+                    error={manualLng !== "" && !manualCoordsValid ? "Enter a value between -180 and 180" : undefined}
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="mt-2 flex justify-between">
               <Button type="button" variant="secondary" onClick={() => setStep(1)}>Back</Button>
               <Button type="submit" loading={mutation.isPending}>Publish listing</Button>

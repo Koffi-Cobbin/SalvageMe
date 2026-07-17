@@ -119,6 +119,23 @@ in `types/index.ts` and `lib/api-client.ts`:
   also means the actual request/response shapes against the live backend are unverified beyond matching
   `API_REFERENCE.md` by hand. **Please smoke-test against the real deployed backend before shipping.**
 
+## UX fixes (this pass)
+
+- **Loading states**: added `loading.tsx` files for the `(public)`, `(app)`, and `(auth)` route groups
+  (Next.js applies special files placed directly in a route group to every route nested under it), plus
+  more specific ones for `/listings` and `/listings/[id]`, all built from the existing `Skeleton` /
+  `ListingCardSkeleton` primitives so the app never shows a blank white screen while a page's data loads.
+- **Image preview on the create-listing form**: selecting a photo now shows a thumbnail (via a blob
+  `object-cover` preview, revoked on change/unmount to avoid leaking memory) with a remove button, instead
+  of just a bare file input with no feedback.
+- **Manual location entry**: the location step now offers "Use my current location" (unchanged) or "Enter
+  a different location", the latter exposing raw latitude/longitude number inputs with range validation
+  (-90..90 / -180..180). No geocoding is available (the API only accepts coordinates, and no geocoding
+  key was specified), so this is coordinates-only for now — see follow-ups.
+- **Logo**: replaced the placeholder `lucide-react` icon in the header with the real SalvageMe logo
+  (`public/logo.jpg`), and generated `app/icon.png` from it so Next.js picks it up as the site favicon
+  automatically.
+
 ## Follow-ups (prioritized, not silently dropped)
 
 1. **Runtime-verify against the live backend** (see above) — register a real user, create a real listing
@@ -130,8 +147,9 @@ in `types/index.ts` and `lib/api-client.ts`:
    font-family tokens, not actual font loading.
 4. **No self-serve verification-request flow** — Settings just displays verification status; requesting
    verification happens outside the API (Django Admin), so there's nothing to build against yet.
-5. **Location editing is create-listing-only** — Settings has a note pointing there; a dedicated
-   lat/lng picker for `PATCH /users/me/` (which needs both fields sent together) is a nice-to-have.
+5. **Manual location entry has no reverse geocoding** — it's raw latitude/longitude number inputs, since
+   the API only accepts coordinates and no geocoding endpoint or key was specified. An address-to-coordinates
+   lookup (e.g. via a geocoding API) would be a nicer input than asking people to know their own lat/lng.
 6. **Full Playwright critical-path test is still skipped**, pending a way to seed a second test user and
    reset backend/mock state between runs without cross-test bleed — and now also needs deciding whether
    E2E should run against the mock adapter or a real staging backend.
@@ -139,3 +157,11 @@ in `types/index.ts` and `lib/api-client.ts`:
    translation layer has been set up.
 8. **`GET /api/health/` isn't surfaced in the UI** — `apiClient.getHealth()` exists but nothing calls it
    yet; could back an uptime banner.
+9. **Loading UI is route-group-level, not per-page** — `loading.tsx` files at `(public)/`, `(app)/`, and
+   `(auth)/` cover the gap during initial navigation/data fetch, with more specific ones for `/listings`
+   and `/listings/[id]`. Pages under `(app)/` still show their own inline skeleton/spinner once their
+   client JS takes over (since TanStack Query loading states aren't visible to `loading.tsx`); giving
+   every route its own tailored `loading.tsx` instead of sharing the group-level one is a nice-to-have.
+10. **Logo is a flat JPG on a white background**, not a transparent PNG/SVG — it reads fine on the
+    `paper-50`/white header background used throughout, but would show a white box on any non-white
+    surface. Ask for a transparent version if the logo needs to sit on a colored background later.

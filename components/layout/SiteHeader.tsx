@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookHeart, Menu, X } from "lucide-react";
+import Image from "next/image";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { Button } from "@/components/ui";
@@ -23,7 +24,7 @@ export function SiteHeader() {
       </a>
       <div className="container-page flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ink-900">
-          <BookHeart className="text-terracotta-500" aria-hidden="true" />
+          <Image src="/logo.jpg" alt="SalvageMe" width={36} height={36} className="rounded-md" priority />
           SalvageMe
         </Link>
 
