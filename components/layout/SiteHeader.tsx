@@ -24,7 +24,7 @@ export function SiteHeader() {
       </a>
       <div className="container-page flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ink-900">
-          <Image src="/logo.jpg" alt="SalvageMe" width={36} height={36} className="rounded-md" priority />
+          <Image src="/logo.png" alt="SalvageMe" width={36} height={36} className="rounded-md" priority />
           SalvageMe
         </Link>
 
