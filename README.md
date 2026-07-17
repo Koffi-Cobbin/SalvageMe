@@ -140,6 +140,31 @@ and other community activities — distinct from the per-listing photo gallery a
   Swap or delete them once real photos are available.
 - Added to both the header nav and footer.
 
+## Navigation loading fix (this pass)
+
+Nav-link clicks weren't showing any loading feedback. Root cause: Next's `loading.tsx` is a Suspense
+fallback — it only appears while a route segment's own `await` is pending. Every page under `(app)` is
+a client component that fetches via TanStack Query *after* mounting, so React has already finished
+rendering an (empty) tree by the time the fetch starts; there's nothing left to suspend on, so
+`loading.tsx` never gets a chance to show. Prefetched static pages have the same symptom for the
+opposite reason — Next already has them ready before you click, so the transition is just instant.
+
+Fixed with two changes:
+
+- **`components/layout/NavigationProgress.tsx`**: a thin top-of-page progress bar, mounted globally in
+  `app/providers.tsx`, that starts the instant an internal link is clicked (via a document-level click
+  listener) and finishes once the URL has actually changed (`usePathname`/`useSearchParams`). This works
+  for every case — static, SSR, and client-rendered pages alike — since it doesn't depend on Suspense.
+- Replaced plain, unstyled `<p>Loading…</p>` fallbacks in `dashboard`, `requests`, `exchanges`,
+  `exchanges/[id]`, and `listings/[id]/edit` with proper `Skeleton`-based loading UI, so the actual
+  TanStack Query loading gap (which the progress bar's "done" state doesn't cover, since the client
+  component has mounted but its own fetch is still in flight) looks intentional instead of like nothing
+  happened.
+
+The route-group `loading.tsx` files added earlier are left in place — they still help on genuine full
+page loads (direct URL entry, hard refresh, opening a link in a new tab) — but are only ever a backstop
+now; the progress bar and per-page skeletons are what actually cover client-side `<Link>` navigation.
+
 ## Verified in this pass
 
 - `npm run typecheck`, `npm run lint`, and `npm run build` all pass clean against the real API's types.

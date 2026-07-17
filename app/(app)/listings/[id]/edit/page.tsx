@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, Select, Skeleton } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
 import { PhotoPicker, type PickedPhoto } from "@/components/listings/PhotoPicker";
 import type { ListingCondition } from "@/types";
@@ -85,7 +85,18 @@ export default function EditListingPage() {
     onError: () => push("Couldn't upload those photos. Please try again.", "error"),
   });
 
-  if (isLoading) return <p className="container-page py-10 text-ink-700/70">Loading…</p>;
+  if (isLoading) {
+    return (
+      <div className="container-page max-w-lg py-10">
+        <Skeleton className="mb-6 h-9 w-40" />
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-11 w-full rounded-lg" />
+          <Skeleton className="h-11 w-full rounded-lg" />
+          <Skeleton className="h-11 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
   if (!listing) return <p className="container-page py-10">Listing not found.</p>;
 
   // The API enforces ownership server-side (403 on PATCH/DELETE); this

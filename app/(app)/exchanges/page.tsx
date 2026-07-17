@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Handshake } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState, Skeleton } from "@/components/ui";
 
 const statusLabel: Record<string, string> = {
   scheduled: "Scheduling / scheduled",
@@ -23,7 +23,9 @@ export default function ExchangesPage() {
       <h1 className="text-display-md">Exchanges</h1>
 
       {isLoading ? (
-        <p className="mt-4 text-sm text-ink-700/70">Loading…</p>
+        <div className="mt-4 flex flex-col gap-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl2" />)}
+        </div>
       ) : !data || data.results.length === 0 ? (
         <div className="mt-4">
           <EmptyState

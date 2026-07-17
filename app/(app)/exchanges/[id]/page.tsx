@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, Phone, MapPin } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { Button, Card, Select, Input } from "@/components/ui";
+import { Button, Card, Select, Input, Skeleton } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
 
 const statusLabel: Record<string, string> = {
@@ -83,7 +83,15 @@ export default function ExchangeDetailPage() {
     },
   });
 
-  if (exchangeQuery.isLoading) return <p className="container-page py-10 text-ink-700/70">Loading exchange…</p>;
+  if (exchangeQuery.isLoading) {
+    return (
+      <div className="container-page max-w-xl py-10">
+        <Skeleton className="mb-2 h-8 w-2/3" />
+        <Skeleton className="mb-6 h-3 w-1/3" />
+        <Skeleton className="h-40 w-full rounded-xl2" />
+      </div>
+    );
+  }
   const exchange = exchangeQuery.data;
   if (!exchange) return <p className="container-page py-10">Exchange not found.</p>;
 

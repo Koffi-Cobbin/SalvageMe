@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Inbox, Send } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { Button, Card, EmptyState } from "@/components/ui";
+import { Button, Card, EmptyState, Skeleton } from "@/components/ui";
 import { useToastStore } from "@/lib/stores/toast-store";
 import type { BookRequest, Paginated } from "@/types";
 
@@ -60,7 +60,17 @@ export default function RequestsPage() {
     },
   });
 
-  if (isLoading) return <p className="container-page py-10 text-ink-700/70">Loading requests…</p>;
+  if (isLoading) {
+    return (
+      <div className="container-page py-10">
+        <Skeleton className="mb-8 h-9 w-40" />
+        <Skeleton className="mb-3 h-7 w-32" />
+        <div className="flex flex-col gap-3">
+          {[1, 2].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl2" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container-page py-10">
