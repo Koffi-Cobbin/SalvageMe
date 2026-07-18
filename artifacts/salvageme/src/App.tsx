@@ -60,6 +60,15 @@ function AppBootstrap() {
   return null;
 }
 
+/** Scroll to the top of the page whenever the route changes. */
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location]);
+  return null;
+}
+
 function NotFoundPage() {
   return (
     <div className="container-page flex min-h-[70vh] flex-col items-center justify-center text-center">
@@ -78,6 +87,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AppBootstrap />
       <Router>
+        <ScrollToTop />
         <NavigationProgress />
         <SiteHeader />
         <main id="main">

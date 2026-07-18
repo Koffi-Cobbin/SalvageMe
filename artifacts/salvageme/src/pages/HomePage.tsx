@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 function StatBlock({ value, label }: { value: string | number; label: string }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <span className="font-display text-4xl font-bold text-terracotta-500">{value}</span>
-      <span className="mt-1 text-sm text-ink-700/80">{label}</span>
+      <span className="font-display text-5xl font-extrabold text-terracotta-500 leading-none">{value}</span>
+      <span className="mt-2 text-base font-medium text-ink-700/80">{label}</span>
     </div>
   );
 }
@@ -57,8 +57,8 @@ export function HomePage() {
 
       {/* Impact stats */}
       {stats && (
-        <section className="border-y border-paper-300 bg-white py-10">
-          <div className="container-page grid grid-cols-2 gap-6 sm:grid-cols-4">
+        <section className="border-y border-paper-300 bg-white py-12">
+          <div className="container-page grid grid-cols-2 gap-8 sm:grid-cols-4">
             <StatBlock value={stats.totalListings.toLocaleString()} label="Books listed" />
             <StatBlock value={stats.totalExchangesCompleted.toLocaleString()} label="Exchanges completed" />
             <StatBlock value={stats.totalActiveDonors.toLocaleString()} label="Active donors" />
@@ -70,9 +70,9 @@ export function HomePage() {
       {/* Recent listings */}
       <section className="py-16">
         <div className="container-page">
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="font-display text-display-md text-ink-900">Recently listed</h2>
-            <Link href="/listings" className="flex items-center gap-1 text-sm font-medium text-terracotta-600 hover:underline no-underline">
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <h2 className="font-display text-display-md text-ink-900 shrink-0">Recently listed</h2>
+            <Link href="/listings" className="flex shrink-0 items-center gap-1 text-sm font-medium text-terracotta-600 hover:underline no-underline whitespace-nowrap">
               See all <ArrowRight size={15} />
             </Link>
           </div>
@@ -107,11 +107,11 @@ export function HomePage() {
               { icon: RefreshCw, step: "2", title: "Arrange the hand-off", body: "Schedule a meet-up or drop off at a community point — no shipping, no costs." },
               { icon: Shield, step: "3", title: "Close the loop", body: "Mark the exchange complete and leave feedback so the community stays trustworthy." },
             ].map(({ icon: Icon, step, title, body }) => (
-              <div key={step} className="flex flex-col items-center rounded-xl2 border border-paper-300 bg-white p-6 text-center [box-shadow:0_2px_10px_rgba(29,26,21,0.06)]">
-                <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-terracotta-50 text-sm font-bold text-terracotta-600">
+              <div key={step} className="relative flex flex-col items-center rounded-xl2 border border-paper-300 bg-white p-6 pt-8 text-center [box-shadow:0_2px_10px_rgba(29,26,21,0.06)]">
+                <span className="absolute top-4 left-4 flex h-7 w-7 items-center justify-center rounded-full bg-terracotta-50 text-xs font-bold text-terracotta-600">
                   {step}
                 </span>
-                <Icon size={24} className="mb-3 text-terracotta-500" />
+                <Icon size={32} strokeWidth={2.5} className="mb-4 text-terracotta-500" />
                 <h3 className="mb-2 font-semibold text-ink-900">{title}</h3>
                 <p className="text-sm text-ink-700/80">{body}</p>
               </div>
