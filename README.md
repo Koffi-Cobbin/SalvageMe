@@ -178,6 +178,67 @@ Two user roles — **donors** and **recipients** — covering the full exchange 
   `button.tsx`). `forceConsistentCasingInFileNames` is enabled in `tsconfig.base.json`; lowercase
   imports will fail the build.
 
+## Deploying to Firebase Hosting
+
+`artifacts/salvageme` is a client-side Vite SPA (Wouter routing, no SSR), so it deploys as static
+files via **Firebase Hosting** — not Firebase App Hosting, which is for SSR frameworks and only
+officially supports Nx/Turborepo monorepos, neither of which this is.
+
+### One-time setup
+
+```bash
+pnpm add -D -w firebase-tools
+pnpm exec firebase login
+pnpm exec firebase use --add   # link this repo to your Firebase project
+```
+
+`firebase.json` at the repo root is already configured to serve the app's build output with an
+SPA rewrite (every path falls back to `index.html`, required for client-side routing):
+
+```json
+{
+  "hosting": {
+    "public": "artifacts/salvageme/dist/public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}
+```
+
+### Set the production API mode
+
+Vite bakes `VITE_*` env vars into the build at build time — there's no runtime env on static
+hosting. Create `artifacts/salvageme/.env.production` (gitignored):
+
+```
+VITE_API_MODE=live
+```
+
+Add `VITE_API_BASE_URL` too if you're not using the default backend URL. Before this actually
+works in production, the Django backend needs your Firebase Hosting domain added to
+`CORS_ALLOWED_ORIGINS` (see the CORS gotcha under Environment variables above).
+
+### Build and deploy
+
+```bash
+pnpm install
+pnpm --filter @workspace/salvageme run build
+pnpm exec firebase deploy --only hosting
+```
+
+The `build` script sets the `PORT`/`BASE_PATH` env vars `vite.config.ts` requires (`PORT` is
+unused by a build but still checked; `BASE_PATH=/` is what matters — it becomes Vite's `base`,
+correct for a root-domain Hosting deploy).
+
+### Optional: auto-deploy on push
+
+`firebase init hosting` can scaffold a GitHub Actions workflow for you (`firebase init hosting:github`
+adds this after the fact too). Since this is a pnpm workspace, edit the generated workflow to
+install with `pnpm install` and build with `pnpm --filter @workspace/salvageme run build` instead
+of the default `npm ci && npm run build` it scaffolds.
+
 ## Contributing
 
 See `API_REFERENCE.md` for the backend contract this frontend integrates against.
