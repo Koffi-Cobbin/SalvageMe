@@ -50,3 +50,6 @@ Thumbs.db
 .agents/
 .replitignore
 .migration-backup/
+
+.env
+.env.local
