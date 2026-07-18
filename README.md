@@ -29,12 +29,17 @@ The frontend talks to an external Django REST API at `https://salvageme.pythonan
 
 ```bash
 pnpm install
-pnpm --filter @workspace/salvageme run dev
+pnpm run dev
 ```
 
 The dev server needs `PORT` and `BASE_PATH` set — the `dev` script already sets sane local defaults
 via `cross-env`, so the command above works as-is with no extra environment setup. Visit
 `http://localhost:3000`.
+
+**Running from root vs. the app folder**: `pnpm run dev` from the repo root is a shortcut for
+`pnpm --filter @workspace/salvageme run dev` — use it from anywhere in the repo. If you're already
+`cd`'d into `artifacts/salvageme/`, just run `pnpm run dev` there directly instead — same result,
+just resolves to the app's own `dev` script rather than the root-level passthrough.
 
 ### Windows notes
 
