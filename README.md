@@ -1,5 +1,7 @@
 # SalvageMe — Frontend
 
+![SalvageMe homepage — Books that deserve a second read](attached_assets/Homepage_1784540516150.png)
+
 A community book exchange platform connecting book donors with students and families in Ghana —
 free, peer-to-peer, no middlemen. This repo is a pnpm workspace containing the production frontend
 (`artifacts/salvageme`, React + Vite) plus a small set of shared backend-facing packages under `lib/`.
