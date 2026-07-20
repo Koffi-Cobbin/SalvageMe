@@ -25,4 +25,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-VITE_API_MODE = "dev"
+VITE_API_MODE = "live"
