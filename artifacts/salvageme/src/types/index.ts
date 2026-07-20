@@ -222,3 +222,77 @@ export interface PartnerApplicationInput {
   proposedLatitude?: number;
   proposedLongitude?: number;
 }
+
+// ── Admin types ────────────────────────────────────────────────────────────────
+
+export interface AdminMe {
+  adminRole: { id: string; name: string } | null;
+  capabilities: string[];
+  canAccessAdmin: boolean;
+}
+
+export interface AdminRole {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: string[];
+  isProtected: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Capability {
+  code: string;
+  description: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  isVerified: boolean;
+  isActive: boolean;
+  adminRole: { id: string; name: string } | null;
+  dateJoined: string;
+}
+
+export interface AdminReport {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ReportReason;
+  detail: string;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor: string;
+  actorUsername: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AdminDropoffPoint {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  coordinator: string | null;
+  managers: { id: string; username: string }[];
+}
+
+export interface AdminDashboard {
+  openReportsCount: number;
+  pendingRequestsCount: number;
+  unverifiedUsersCount: number;
+  listingsCreatedToday: number;
+  scheduledExchangesCount: number;
+}
