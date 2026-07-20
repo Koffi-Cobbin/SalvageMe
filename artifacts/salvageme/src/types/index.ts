@@ -162,3 +162,63 @@ export interface ApiError {
   code: string;
   errors?: Record<string, string[]>;
 }
+
+// ── Notifications ──────────────────────────────────────────────────────────────
+
+export type NotificationCategory =
+  | "request_received"
+  | "request_accepted"
+  | "request_declined"
+  | "exchange_scheduled"
+  | "exchange_completed"
+  | "exchange_reminder"
+  | "report_resolved"
+  | "partner_application_ready"
+  | "partner_application_approved"
+  | "partner_application_rejected"
+  | "role_assigned"
+  | "system";
+
+export interface Notification {
+  id: string;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  /** The type of object this notification links to, e.g. "exchange", "request". */
+  targetType: string | null;
+  targetId: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+// ── Partner applications ───────────────────────────────────────────────────────
+
+export type PartnerApplicationStatus = "pending" | "approved" | "rejected";
+
+export interface PartnerApplication {
+  id: string;
+  applicantName: string;
+  applicantEmail: string;
+  applicantPhone: string | null;
+  organizationName: string | null;
+  message: string | null;
+  proposedDropoffName: string | null;
+  proposedDropoffAddress: string | null;
+  emailVerifiedAt: string | null;
+  status: PartnerApplicationStatus;
+  rejectionReason: string;
+  createdAt: string;
+}
+
+export interface PartnerApplicationInput {
+  applicantName?: string;
+  applicantEmail?: string;
+  applicantPhone?: string;
+  organizationName?: string;
+  message?: string;
+  proposedDropoffName?: string;
+  proposedDropoffAddress?: string;
+  proposedLatitude?: number;
+  proposedLongitude?: number;
+}

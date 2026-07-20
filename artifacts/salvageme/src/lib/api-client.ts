@@ -10,7 +10,10 @@ import type {
   Listing,
   ListingImage,
   ListingsQuery,
+  Notification,
   Paginated,
+  PartnerApplication,
+  PartnerApplicationInput,
   PublicUser,
   Rating,
   ReportPayload,
@@ -19,6 +22,7 @@ import type {
 import { mockAdapter } from "./mock-adapter";
 
 export interface ApiAdapter {
+  // ── Auth ─────────────────────────────────────────────────────────────────────
   register(input: {
     username: string;
     password: string;
@@ -29,6 +33,13 @@ export interface ApiAdapter {
   login(username: string, password: string): Promise<{ user: User; tokens: AuthTokens }>;
   refresh(): Promise<AuthTokens>;
   logout(): Promise<void>;
+  /**
+   * Set (or reset) a password using a uid+token from an invite / reset email.
+   * Also marks the account is_verified = true on success.
+   */
+  setPassword(uid: string, token: string, newPassword: string): Promise<void>;
+
+  // ── Users ────────────────────────────────────────────────────────────────────
   me(): Promise<User>;
   updateMe(
     patch: Partial<{
@@ -40,8 +51,10 @@ export interface ApiAdapter {
     }>,
   ): Promise<User>;
 
+  // ── Categories ───────────────────────────────────────────────────────────────
   listCategories(): Promise<Category[]>;
 
+  // ── Listings ──────────────────────────────────────────────────────────────────
   listListings(query: ListingsQuery): Promise<Paginated<Listing>>;
   getListing(id: string): Promise<Listing>;
   createListing(input: {
@@ -55,14 +68,17 @@ export interface ApiAdapter {
   }): Promise<Listing>;
   updateListing(id: string, patch: Partial<Parameters<ApiAdapter["createListing"]>[0]>): Promise<Listing>;
   deleteListing(id: string): Promise<void>;
+  /** POST /listings/{id}/photos/ — field name "file", JPEG/PNG/WebP, max 8 MB. */
   uploadListingPhoto(listingId: string, file: File): Promise<ListingImage>;
 
+  // ── Book requests ─────────────────────────────────────────────────────────────
   requestListing(listingId: string, message?: string): Promise<BookRequest>;
   listRequests(): Promise<Paginated<BookRequest>>;
   getRequest(id: string): Promise<BookRequest>;
   acceptRequest(requestId: string): Promise<BookRequest>;
   declineRequest(requestId: string): Promise<BookRequest>;
 
+  // ── Exchanges ─────────────────────────────────────────────────────────────────
   listExchanges(): Promise<Paginated<Exchange>>;
   getExchange(id: string): Promise<Exchange>;
   scheduleExchange(
@@ -73,8 +89,31 @@ export interface ApiAdapter {
   cancelExchange(exchangeId: string): Promise<Exchange>;
   rateExchange(exchangeId: string, input: { score: number; comment?: string }): Promise<Rating>;
 
+  // ── Drop-off points ───────────────────────────────────────────────────────────
   listDropoffPoints(): Promise<DropoffPoint[]>;
+
+  // ── Reports ───────────────────────────────────────────────────────────────────
   submitReport(payload: ReportPayload): Promise<void>;
+
+  // ── Notifications ─────────────────────────────────────────────────────────────
+  listNotifications(query?: {
+    isRead?: boolean;
+    category?: string;
+    cursorUrl?: string | null;
+  }): Promise<Paginated<Notification>>;
+  getNotification(id: string): Promise<Notification>;
+  /** GET /notifications/unread-count/ — returns the count integer. */
+  getUnreadNotificationCount(): Promise<number>;
+  /** POST /notifications/{id}/read/ */
+  markNotificationRead(id: string): Promise<Notification>;
+  /** POST /notifications/mark-all-read/ — returns how many were marked. */
+  markAllNotificationsRead(): Promise<{ markedRead: number }>;
+  deleteNotification(id: string): Promise<void>;
+
+  // ── Partner applications ──────────────────────────────────────────────────────
+  submitPartnerApplication(input: PartnerApplicationInput): Promise<PartnerApplication>;
+
+  // ── Stats / health ────────────────────────────────────────────────────────────
   getImpactStats(): Promise<ImpactStats>;
   getHealth(): Promise<HealthStatus>;
 }
@@ -91,7 +130,7 @@ export class ApiClientError extends Error {
   }
 }
 
-// ---- wire <-> app shape mapping -------------------------------------------------
+// ── wire → app shape mapping ──────────────────────────────────────────────────
 
 function toPublicUser(u: any): PublicUser {
   return {
@@ -201,6 +240,37 @@ function toRating(r: any): Rating {
   };
 }
 
+function toNotification(n: any): Notification {
+  return {
+    id: String(n.id),
+    category: n.category,
+    title: n.title,
+    body: n.body,
+    targetType: n.target_type ?? null,
+    targetId: n.target_id != null ? String(n.target_id) : null,
+    isRead: n.is_read,
+    readAt: n.read_at ?? null,
+    createdAt: n.created_at,
+  };
+}
+
+function toPartnerApplication(p: any): PartnerApplication {
+  return {
+    id: String(p.id),
+    applicantName: p.applicant_name,
+    applicantEmail: p.applicant_email,
+    applicantPhone: p.applicant_phone ?? null,
+    organizationName: p.organization_name ?? null,
+    message: p.message ?? null,
+    proposedDropoffName: p.proposed_dropoff_name ?? null,
+    proposedDropoffAddress: p.proposed_dropoff_address ?? null,
+    emailVerifiedAt: p.email_verified_at ?? null,
+    status: p.status,
+    rejectionReason: p.rejection_reason ?? "",
+    createdAt: p.created_at,
+  };
+}
+
 function toImpactStats(s: any): ImpactStats {
   return {
     totalListings: s.total_listings,
@@ -219,7 +289,7 @@ function toPaginated<T>(body: any, map: (x: any) => T): Paginated<T> {
   };
 }
 
-// ---- live adapter -----------------------------------------------------------------
+// ── live adapter ──────────────────────────────────────────────────────────────
 
 function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
   let accessToken: string | null = null;
@@ -260,6 +330,7 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
   }
 
   return {
+    // ── Auth ──────────────────────────────────────────────────────────────────
     async register(input) {
       const body = await request<any>("/auth/register/", { method: "POST", body: JSON.stringify(input) });
       accessToken = body.access;
@@ -279,12 +350,21 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
       await request("/auth/logout/", { method: "POST" });
       accessToken = null;
     },
+    async setPassword(uid, token, newPassword) {
+      await request("/auth/set-password/", {
+        method: "POST",
+        body: JSON.stringify({ uid, token, new_password: newPassword }),
+      });
+    },
+
+    // ── Users ──────────────────────────────────────────────────────────────────
     me: async () => toUser(await request("/users/me/")),
     updateMe: async (patch) => {
       const body: Record<string, unknown> = {};
       if (patch.email !== undefined) body.email = patch.email;
       if (patch.role !== undefined) body.role = patch.role;
       if (patch.phone !== undefined) body.phone = patch.phone;
+      // latitude and longitude must be sent together — the backend ignores a lone value.
       if (patch.latitude !== undefined && patch.longitude !== undefined) {
         body.latitude = patch.latitude;
         body.longitude = patch.longitude;
@@ -292,8 +372,10 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
       return toUser(await request("/users/me/", { method: "PATCH", body: JSON.stringify(body) }));
     },
 
+    // ── Categories ────────────────────────────────────────────────────────────
     listCategories: async () => (await request<any[]>("/categories/")).map(toCategory),
 
+    // ── Listings ──────────────────────────────────────────────────────────────
     async listListings(query) {
       if (query.cursorUrl) {
         return toPaginated(await request<any>(query.cursorUrl), toListing);
@@ -303,11 +385,11 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
       if (query.condition) params.set("condition", query.condition);
       if (query.gradeLevel) params.set("grade_level", query.gradeLevel);
       if (query.q) params.set("q", query.q);
-      if (query.near) {
-        params.set("lat", String(query.near.lat));
-        params.set("lng", String(query.near.lng));
-      }
-      if (query.radiusKm) params.set("radius_km", String(query.radiusKm));
+      // API expects ?near=lat,lng (single comma-separated param), not ?lat=&lng= separately.
+      if (query.near) params.set("near", `${query.near.lat},${query.near.lng}`);
+      // API expects ?radius=N (km), not ?radius_km=N.
+      if (query.radiusKm) params.set("radius", String(query.radiusKm));
+      if (query.pageSize) params.set("page_size", String(query.pageSize));
       const qs = params.toString();
       return toPaginated(await request<any>(`/listings/${qs ? `?${qs}` : ""}`), toListing);
     },
@@ -340,10 +422,13 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
     deleteListing: async (id) => request(`/listings/${id}/`, { method: "DELETE" }),
     async uploadListingPhoto(listingId, file) {
       const form = new FormData();
-      form.append("image", file);
-      return toListingImage(await request(`/listings/${listingId}/images/`, { method: "POST", body: form }));
+      // Field name must be "file" (not "image") per the API spec.
+      form.append("file", file);
+      // Endpoint is /photos/, not /images/.
+      return toListingImage(await request(`/listings/${listingId}/photos/`, { method: "POST", body: form }));
     },
 
+    // ── Book requests ─────────────────────────────────────────────────────────
     requestListing: async (listingId, message) =>
       toBookRequest(
         await request(`/listings/${listingId}/request/`, {
@@ -358,6 +443,7 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
     declineRequest: async (requestId) =>
       toBookRequest(await request(`/requests/${requestId}/decline/`, { method: "POST" })),
 
+    // ── Exchanges ─────────────────────────────────────────────────────────────
     listExchanges: async () => toPaginated(await request<any>("/exchanges/"), toExchange),
     getExchange: async (id) => toExchange(await request(`/exchanges/${id}/`)),
     scheduleExchange: async (exchangeId, input) =>
@@ -382,7 +468,10 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
         }),
       ),
 
+    // ── Drop-off points ───────────────────────────────────────────────────────
     listDropoffPoints: async () => (await request<any[]>("/dropoff-points/")).map(toDropoffPoint),
+
+    // ── Reports ───────────────────────────────────────────────────────────────
     submitReport: (payload) =>
       request("/reports/", {
         method: "POST",
@@ -393,6 +482,53 @@ function createLiveAdapter(baseUrl: string, healthBaseUrl: string): ApiAdapter {
           detail: payload.detail,
         }),
       }),
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    async listNotifications(query = {}) {
+      if (query.cursorUrl) {
+        return toPaginated(await request<any>(query.cursorUrl), toNotification);
+      }
+      const params = new URLSearchParams();
+      if (query.isRead !== undefined) params.set("is_read", String(query.isRead));
+      if (query.category) params.set("category", query.category);
+      const qs = params.toString();
+      return toPaginated(await request<any>(`/notifications/${qs ? `?${qs}` : ""}`), toNotification);
+    },
+    getNotification: async (id) => toNotification(await request(`/notifications/${id}/`)),
+    async getUnreadNotificationCount() {
+      const body = await request<any>("/notifications/unread-count/");
+      return body.count as number;
+    },
+    async markNotificationRead(id) {
+      return toNotification(await request(`/notifications/${id}/read/`, { method: "POST" }));
+    },
+    async markAllNotificationsRead() {
+      const body = await request<any>("/notifications/mark-all-read/", { method: "POST" });
+      return { markedRead: body.marked_read as number };
+    },
+    deleteNotification: async (id) => request(`/notifications/${id}/`, { method: "DELETE" }),
+
+    // ── Partner applications ──────────────────────────────────────────────────
+    async submitPartnerApplication(input) {
+      return toPartnerApplication(
+        await request("/partner-applications/", {
+          method: "POST",
+          body: JSON.stringify({
+            applicant_name: input.applicantName,
+            applicant_email: input.applicantEmail,
+            applicant_phone: input.applicantPhone,
+            organization_name: input.organizationName,
+            message: input.message,
+            proposed_dropoff_name: input.proposedDropoffName,
+            proposed_dropoff_address: input.proposedDropoffAddress,
+            proposed_latitude: input.proposedLatitude,
+            proposed_longitude: input.proposedLongitude,
+          }),
+        }),
+      );
+    },
+
+    // ── Stats / health ────────────────────────────────────────────────────────
     getImpactStats: async () => toImpactStats(await request("/stats/impact/")),
     getHealth: async () => request(`${healthBaseUrl}/health/`),
   };

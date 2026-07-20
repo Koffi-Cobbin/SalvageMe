@@ -8,6 +8,8 @@ import type {
   ImpactStats,
   Listing,
   ListingImage,
+  Notification,
+  PartnerApplication,
   Rating,
   User,
 } from "@/types";
@@ -114,6 +116,9 @@ export const mockAdapter: ApiAdapter = {
   },
   async logout() {
     await delay(100);
+  },
+  async setPassword() {
+    await delay();
   },
   async me() {
     await delay(100);
@@ -324,6 +329,51 @@ export const mockAdapter: ApiAdapter = {
   async submitReport() {
     await delay();
   },
+
+  // ── Notifications (stubs — mock returns empty inbox) ─────────────────────
+  async listNotifications() {
+    await delay();
+    return { results: [] as Notification[], nextCursorUrl: null, previousCursorUrl: null };
+  },
+  async getNotification() {
+    await delay();
+    notFound();
+  },
+  async getUnreadNotificationCount() {
+    await delay(50);
+    return 0;
+  },
+  async markNotificationRead() {
+    await delay();
+    notFound();
+  },
+  async markAllNotificationsRead() {
+    await delay();
+    return { markedRead: 0 };
+  },
+  async deleteNotification() {
+    await delay();
+  },
+
+  // ── Partner applications (stub) ───────────────────────────────────────────
+  async submitPartnerApplication(input): Promise<PartnerApplication> {
+    await delay();
+    return {
+      id: "1",
+      applicantName: input.applicantName ?? "Anonymous",
+      applicantEmail: input.applicantEmail ?? "",
+      applicantPhone: input.applicantPhone ?? null,
+      organizationName: input.organizationName ?? null,
+      message: input.message ?? null,
+      proposedDropoffName: input.proposedDropoffName ?? null,
+      proposedDropoffAddress: input.proposedDropoffAddress ?? null,
+      emailVerifiedAt: null,
+      status: "pending",
+      rejectionReason: "",
+      createdAt: new Date().toISOString(),
+    };
+  },
+
   async getImpactStats(): Promise<ImpactStats> {
     await delay();
     return {
