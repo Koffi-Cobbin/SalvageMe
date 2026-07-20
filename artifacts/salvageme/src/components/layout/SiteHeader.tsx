@@ -1,7 +1,8 @@
 import { Link } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useAdminStore } from "@/lib/stores/admin-store";
 import { Button } from "@/components/ui";
 
 const navLinks = [
@@ -14,21 +15,32 @@ const navLinks = [
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { status } = useSessionStore();
+  const canAccessAdmin = useAdminStore((s) => s.adminMe?.canAccessAdmin ?? false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-paper-300 bg-paper-50/95 backdrop-blur">
-      <a href="#main" className="sr-only-focusable fixed left-2 top-2 z-50 rounded bg-terracotta-500 px-3 py-2 text-white">
+      <a
+        href="#main"
+        className="sr-only-focusable fixed left-2 top-2 z-50 rounded bg-terracotta-500 px-3 py-2 text-white"
+      >
         Skip to main content
       </a>
       <div className="container-page flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ink-900 no-underline">
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-display text-lg font-semibold text-ink-900 no-underline"
+        >
           <img src="/logo.png" alt="SalvageMe" width={36} height={36} className="rounded-md" />
           SalvageMe
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
           {navLinks.map((l) => (
-            <Link key={l.href} href={l.href} className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline">
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
+            >
               {l.label}
             </Link>
           ))}
@@ -37,19 +49,39 @@ export function SiteHeader() {
         <div className="hidden items-center gap-3 md:flex">
           {status === "authenticated" ? (
             <>
-              <Link href="/requests" className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline">
+              <Link
+                href="/requests"
+                className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
+              >
                 Requests
               </Link>
-              <Link href="/exchanges" className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline">
+              <Link
+                href="/exchanges"
+                className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
+              >
                 Exchanges
               </Link>
+              {canAccessAdmin && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-1.5 text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
+                >
+                  <Shield size={15} />
+                  Admin
+                </Link>
+              )}
               <Link href="/dashboard">
-                <Button variant="secondary" size="sm">Dashboard</Button>
+                <Button variant="secondary" size="sm">
+                  Dashboard
+                </Button>
               </Link>
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline">
+              <Link
+                href="/login"
+                className="text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
+              >
                 Log in
               </Link>
               <Link href="/register">
@@ -82,12 +114,58 @@ export function SiteHeader() {
                 {l.label}
               </Link>
             ))}
-            <Link href="/login" onClick={() => setOpen(false)} className="rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline">
-              Log in
-            </Link>
-            <Link href="/register" onClick={() => setOpen(false)} className="rounded-lg px-2 py-2.5 text-sm font-semibold text-terracotta-600 no-underline">
-              Give or Get Books
-            </Link>
+            {status === "authenticated" ? (
+              <>
+                <Link
+                  href="/requests"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline"
+                >
+                  Requests
+                </Link>
+                <Link
+                  href="/exchanges"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline"
+                >
+                  Exchanges
+                </Link>
+                {canAccessAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline"
+                  >
+                    <Shield size={14} />
+                    Admin
+                  </Link>
+                )}
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-semibold text-terracotta-600 no-underline"
+                >
+                  Dashboard
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-semibold text-terracotta-600 no-underline"
+                >
+                  Give or Get Books
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       )}

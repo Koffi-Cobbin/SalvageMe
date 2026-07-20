@@ -2,10 +2,13 @@ import { useEffect } from "react";
 import { Router, Route, Switch, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useAdminStore } from "@/lib/stores/admin-store";
+import { apiClient } from "@/lib/api-client";
 import { bootstrapSession } from "@/lib/auth";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { NavigationProgress } from "@/components/layout/NavigationProgress";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ToastHost } from "@/components/ui/Toast";
 
 import { HomePage } from "@/pages/HomePage";
@@ -24,12 +27,22 @@ import { FaqPage } from "@/pages/FaqPage";
 import { HowItWorksPage } from "@/pages/HowItWorksPage";
 import { GalleryPage } from "@/pages/GalleryPage";
 
+import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
+import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+import { AdminListingsPage } from "@/pages/admin/AdminListingsPage";
+import { AdminCategoriesPage } from "@/pages/admin/AdminCategoriesPage";
+import { AdminReportsPage } from "@/pages/admin/AdminReportsPage";
+import { AdminExchangesPage } from "@/pages/admin/AdminExchangesPage";
+import { AdminRequestsPage } from "@/pages/admin/AdminRequestsPage";
+import { AdminRatingsPage } from "@/pages/admin/AdminRatingsPage";
+import { AdminDropoffPointsPage } from "@/pages/admin/AdminDropoffPointsPage";
+import { AdminPartnerApplicationsPage } from "@/pages/admin/AdminPartnerApplicationsPage";
+import { AdminAuditLogPage } from "@/pages/admin/AdminAuditLogPage";
+import { AdminRolesPage } from "@/pages/admin/AdminRolesPage";
+
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-    },
+    queries: { retry: 1, staleTime: 30_000 },
   },
 });
 
@@ -52,15 +65,84 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { status } = useSessionStore();
+  const adminMe = useAdminStore((s) => s.adminMe);
+  const [location] = useLocation();
+
+  const stillLoading =
+    status === "idle" ||
+    status === "loading" ||
+    (status === "authenticated" && !adminMe);
+
+  if (stillLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-paper-300 border-t-terracotta-500" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return <Redirect to={`/login?returnTo=${encodeURIComponent(location)}`} />;
+  }
+
+  if (!adminMe!.canAccessAdmin) {
+    return <Redirect to="/" />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminSection() {
+  return (
+    <AdminLayout>
+      <Switch>
+        <Route path="/admin/users" component={AdminUsersPage} />
+        <Route path="/admin/listings" component={AdminListingsPage} />
+        <Route path="/admin/categories" component={AdminCategoriesPage} />
+        <Route path="/admin/reports" component={AdminReportsPage} />
+        <Route path="/admin/exchanges" component={AdminExchangesPage} />
+        <Route path="/admin/requests" component={AdminRequestsPage} />
+        <Route path="/admin/ratings" component={AdminRatingsPage} />
+        <Route path="/admin/dropoff-points" component={AdminDropoffPointsPage} />
+        <Route path="/admin/partner-applications" component={AdminPartnerApplicationsPage} />
+        <Route path="/admin/audit-log" component={AdminAuditLogPage} />
+        <Route path="/admin/roles" component={AdminRolesPage} />
+        <Route path="/admin" component={AdminDashboardPage} />
+        <Route>
+          <div className="flex min-h-[40vh] items-center justify-center text-sm text-ink-700/50">
+            Admin page not found.
+          </div>
+        </Route>
+      </Switch>
+    </AdminLayout>
+  );
+}
+
 function AppBootstrap() {
   useEffect(() => {
     bootstrapSession();
   }, []);
+  return null;
+}
+
+function AdminBootstrap() {
+  const { status } = useSessionStore();
+  const { adminMe, setAdminMe, clear } = useAdminStore();
+
+  useEffect(() => {
+    if (status === "authenticated" && !adminMe) {
+      apiClient.getAdminMe().then(setAdminMe).catch(() => {});
+    }
+    if (status === "unauthenticated" && adminMe) {
+      clear();
+    }
+  }, [status, adminMe, setAdminMe, clear]);
 
   return null;
 }
 
-/** Scroll to the top of the page whenever the route changes. */
 function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
@@ -75,10 +157,86 @@ function NotFoundPage() {
       <p className="text-5xl font-bold text-terracotta-500">404</p>
       <h1 className="mt-3 text-display-sm">Page not found</h1>
       <p className="mt-2 text-ink-700/70">This page doesn't exist or was moved.</p>
-      <a href="/" className="mt-6 inline-flex items-center rounded-xl bg-terracotta-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-terracotta-600">
+      <a
+        href="/"
+        className="mt-6 inline-flex items-center rounded-xl bg-terracotta-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-terracotta-600"
+      >
         Back to home
       </a>
     </div>
+  );
+}
+
+function AppInner() {
+  const [location] = useLocation();
+
+  if (location.startsWith("/admin")) {
+    return (
+      <AdminGuard>
+        <AdminSection />
+      </AdminGuard>
+    );
+  }
+
+  return (
+    <>
+      <SiteHeader />
+      <main id="main">
+        <Switch>
+          {/* Public */}
+          <Route path="/" component={HomePage} />
+          <Route path="/listings" component={ListingsPage} />
+          <Route path="/listings/new">
+            <AuthGuard>
+              <NewListingPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/listings/:id/edit">
+            <AuthGuard>
+              <EditListingPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/listings/:id" component={ListingDetailPage} />
+          <Route path="/faq" component={FaqPage} />
+          <Route path="/how-it-works" component={HowItWorksPage} />
+          <Route path="/gallery" component={GalleryPage} />
+
+          {/* Auth */}
+          <Route path="/login" component={LoginPage} />
+          <Route path="/register" component={RegisterPage} />
+
+          {/* Protected */}
+          <Route path="/dashboard">
+            <AuthGuard>
+              <DashboardPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/exchanges/:id">
+            <AuthGuard>
+              <ExchangeDetailPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/exchanges">
+            <AuthGuard>
+              <ExchangesPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/requests">
+            <AuthGuard>
+              <RequestsPage />
+            </AuthGuard>
+          </Route>
+          <Route path="/settings">
+            <AuthGuard>
+              <SettingsPage />
+            </AuthGuard>
+          </Route>
+
+          <Route component={NotFoundPage} />
+        </Switch>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
 
@@ -86,51 +244,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppBootstrap />
+      <AdminBootstrap />
       <Router>
         <ScrollToTop />
         <NavigationProgress />
-        <SiteHeader />
-        <main id="main">
-          <Switch>
-            {/* Public */}
-            <Route path="/" component={HomePage} />
-            <Route path="/listings" component={ListingsPage} />
-            <Route path="/listings/new">
-              <AuthGuard><NewListingPage /></AuthGuard>
-            </Route>
-            <Route path="/listings/:id/edit">
-              <AuthGuard><EditListingPage /></AuthGuard>
-            </Route>
-            <Route path="/listings/:id" component={ListingDetailPage} />
-            <Route path="/faq" component={FaqPage} />
-            <Route path="/how-it-works" component={HowItWorksPage} />
-            <Route path="/gallery" component={GalleryPage} />
-
-            {/* Auth */}
-            <Route path="/login" component={LoginPage} />
-            <Route path="/register" component={RegisterPage} />
-
-            {/* Protected */}
-            <Route path="/dashboard">
-              <AuthGuard><DashboardPage /></AuthGuard>
-            </Route>
-            <Route path="/exchanges/:id">
-              <AuthGuard><ExchangeDetailPage /></AuthGuard>
-            </Route>
-            <Route path="/exchanges">
-              <AuthGuard><ExchangesPage /></AuthGuard>
-            </Route>
-            <Route path="/requests">
-              <AuthGuard><RequestsPage /></AuthGuard>
-            </Route>
-            <Route path="/settings">
-              <AuthGuard><SettingsPage /></AuthGuard>
-            </Route>
-
-            <Route component={NotFoundPage} />
-          </Switch>
-        </main>
-        <SiteFooter />
+        <AppInner />
       </Router>
       <ToastHost />
     </QueryClientProvider>
