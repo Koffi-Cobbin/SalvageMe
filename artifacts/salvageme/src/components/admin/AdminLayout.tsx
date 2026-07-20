@@ -86,7 +86,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <div className="border-t border-ink-700 p-3">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-paper-400 no-underline hover:bg-ink-700 hover:text-white transition-colors"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-paper-300 no-underline hover:bg-ink-700 hover:text-white transition-colors"
         >
           <ChevronLeft size={15} />
           Back to app
