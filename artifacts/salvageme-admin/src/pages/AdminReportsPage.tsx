@@ -3,13 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar, FilterSelect } from "@/components/admin/FilterBar";
-import { ActionModal } from "@/components/admin/ActionModal";
+import { AdminCan } from "@/components/AdminCan";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar, FilterSelect } from "@/components/FilterBar";
+import { ActionModal } from "@/components/ActionModal";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui";
 import type { AdminReport } from "@/types";
+
+// Public site origin — used for the "View listing" link, since listing
+// detail pages live in the public app, not this one.
+const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || "/";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -215,12 +219,17 @@ export function AdminReportsPage() {
               <dd className="mt-0.5 capitalize">
                 {detail.targetType} #{detail.targetId}
                 {detail.targetType === "listing" && (
-                  <Link href={`/listings/${detail.targetId}`} className="ml-2 text-terracotta-600 hover:underline text-xs">
+                  <a
+                    href={`${PUBLIC_APP_URL}/listings/${detail.targetId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 text-terracotta-600 hover:underline text-xs"
+                  >
                     View listing →
-                  </Link>
+                  </a>
                 )}
                 {detail.targetType === "user" && (
-                  <Link href={`/admin/users`} className="ml-2 text-terracotta-600 hover:underline text-xs">
+                  <Link href="/users" className="ml-2 text-terracotta-600 hover:underline text-xs">
                     View in users →
                   </Link>
                 )}

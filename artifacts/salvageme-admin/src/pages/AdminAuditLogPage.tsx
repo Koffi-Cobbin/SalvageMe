@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar, FilterSelect } from "@/components/admin/FilterBar";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar, FilterSelect } from "@/components/FilterBar";
 import type { AuditLogEntry } from "@/types";
 
 function fmtDateTime(iso: string) {

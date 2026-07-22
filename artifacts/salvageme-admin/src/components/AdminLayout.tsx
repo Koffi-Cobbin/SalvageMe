@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Flag, Users, BookOpen, RefreshCw, Inbox,
-  Star, Tag, MapPin, Building2, History, Shield, ChevronLeft,
+  Star, Tag, MapPin, Building2, History, Shield, ExternalLink,
   Menu, X,
 } from "lucide-react";
 import { useAdminStore } from "@/lib/stores/admin-store";
@@ -15,20 +15,26 @@ interface NavItem {
   exact?: boolean;
 }
 
+// Routes are unprefixed (no /admin/...) since this entire app IS the admin
+// section — there is nothing else it could be a subsection of.
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, capability: "dashboard.view", exact: true },
-  { href: "/admin/reports", label: "Reports", icon: Flag, capability: "reports.view" },
-  { href: "/admin/users", label: "Users", icon: Users, capability: "users.view" },
-  { href: "/admin/listings", label: "Listings", icon: BookOpen, capability: "listings.view" },
-  { href: "/admin/exchanges", label: "Exchanges", icon: RefreshCw, capability: "exchanges.view" },
-  { href: "/admin/requests", label: "Requests", icon: Inbox, capability: "requests.view" },
-  { href: "/admin/ratings", label: "Ratings", icon: Star, capability: "ratings.view" },
-  { href: "/admin/categories", label: "Categories", icon: Tag, capability: "categories.manage" },
-  { href: "/admin/dropoff-points", label: "Drop-off Points", icon: MapPin, capability: "dropoff.view" },
-  { href: "/admin/partner-applications", label: "Partners", icon: Building2, capability: "partner_applications.review" },
-  { href: "/admin/audit-log", label: "Audit Log", icon: History, capability: "auditlog.view" },
-  { href: "/admin/roles", label: "Roles", icon: Shield, capability: "roles.manage" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, capability: "dashboard.view", exact: true },
+  { href: "/reports", label: "Reports", icon: Flag, capability: "reports.view" },
+  { href: "/users", label: "Users", icon: Users, capability: "users.view" },
+  { href: "/listings", label: "Listings", icon: BookOpen, capability: "listings.view" },
+  { href: "/exchanges", label: "Exchanges", icon: RefreshCw, capability: "exchanges.view" },
+  { href: "/requests", label: "Requests", icon: Inbox, capability: "requests.view" },
+  { href: "/ratings", label: "Ratings", icon: Star, capability: "ratings.view" },
+  { href: "/categories", label: "Categories", icon: Tag, capability: "categories.manage" },
+  { href: "/dropoff-points", label: "Drop-off Points", icon: MapPin, capability: "dropoff.view" },
+  { href: "/partner-applications", label: "Partners", icon: Building2, capability: "partner_applications.review" },
+  { href: "/audit-log", label: "Audit Log", icon: History, capability: "auditlog.view" },
+  { href: "/roles", label: "Roles", icon: Shield, capability: "roles.manage" },
 ];
+
+// The public site's URL — plain env-driven external link, not an in-app
+// route. Falls back to "/" (relative) if unset so local dev never 404s.
+const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || "/";
 
 function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
   const Icon = item.icon;
@@ -65,7 +71,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-ink-700 px-4 py-4">
         <Shield size={20} className="text-terracotta-400 shrink-0" />
-        <span className="font-display text-sm font-semibold text-white">Admin Panel</span>
+        <span className="font-display text-sm font-semibold text-white">SalvageMe Admin</span>
       </div>
 
       {/* Nav */}
@@ -84,13 +90,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Footer */}
       <div className="border-t border-ink-700 p-3">
-        <Link
-          href="/"
+        <a
+          href={PUBLIC_APP_URL}
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-paper-300 no-underline hover:bg-ink-700 hover:text-white transition-colors"
         >
-          <ChevronLeft size={15} />
-          Back to app
-        </Link>
+          <ExternalLink size={15} />
+          Public site
+        </a>
       </div>
     </div>
   );
@@ -128,7 +134,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span className="font-display text-sm font-semibold text-ink-900">Admin Panel</span>
+          <span className="font-display text-sm font-semibold text-ink-900">SalvageMe Admin</span>
         </div>
 
         <main className="flex-1 p-6">{children}</main>

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Star } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar } from "@/components/admin/FilterBar";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar } from "@/components/FilterBar";
 import type { Rating } from "@/types";
 
 function fmtDate(iso: string) {

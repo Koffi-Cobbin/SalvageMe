@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar, FilterSelect } from "@/components/admin/FilterBar";
-import { ActionModal } from "@/components/admin/ActionModal";
+import { AdminCan } from "@/components/AdminCan";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar, FilterSelect } from "@/components/FilterBar";
+import { ActionModal } from "@/components/ActionModal";
 import { Modal } from "@/components/ui/Modal";
 import { Button, Input } from "@/components/ui";
 import { VerifiedBadge } from "@/components/ui/Badge";
@@ -31,12 +31,10 @@ export function AdminUsersPage() {
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [modal, setModal] = useState<ModalKind | null>(null);
 
-  // Edit form state
   const [editRole, setEditRole] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editVerified, setEditVerified] = useState(false);
 
-  // Assign role form state
   const [assignRoleId, setAssignRoleId] = useState<string>("");
 
   const { data, isLoading } = useQuery({

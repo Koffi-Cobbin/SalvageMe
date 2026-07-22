@@ -6,8 +6,8 @@ import {
 import { RefreshCw, Flag, Users, BookOpen, Calendar, ListTodo } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { StatCard } from "@/components/admin/StatCard";
+import { AdminCan } from "@/components/AdminCan";
+import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui";
 
 function fmtDate(iso: string) {
@@ -72,7 +72,7 @@ export function AdminDashboardPage() {
           label="Open reports"
           value={isLoading ? "—" : (dashboard?.openReportsCount ?? 0)}
           icon={<Flag size={20} />}
-          to="/admin/reports"
+          to="/reports"
           highlight={!isLoading && (dashboard?.openReportsCount ?? 0) > 0}
         />
         <StatCard
@@ -84,7 +84,7 @@ export function AdminDashboardPage() {
           label="Unverified users"
           value={isLoading ? "—" : (dashboard?.unverifiedUsersCount ?? 0)}
           icon={<Users size={20} />}
-          to="/admin/users"
+          to="/users"
           highlight={!isLoading && (dashboard?.unverifiedUsersCount ?? 0) > 0}
         />
         <StatCard
