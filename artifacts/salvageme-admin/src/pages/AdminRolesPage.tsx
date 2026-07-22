@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { ActionModal } from "@/components/admin/ActionModal";
+import { AdminCan } from "@/components/AdminCan";
+import { ActionModal } from "@/components/ActionModal";
 import { Modal } from "@/components/ui/Modal";
 import { Button, Input } from "@/components/ui";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -26,7 +26,6 @@ function groupCapabilities(caps: Capability[]) {
     if (!groups[domain]) groups[domain] = [];
     groups[domain].push(cap);
   }
-  // Sort by domain order
   const ordered: [string, Capability[]][] = [];
   for (const d of DOMAIN_ORDER) {
     if (groups[d]) ordered.push([d, groups[d]]);

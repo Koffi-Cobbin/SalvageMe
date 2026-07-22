@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { ActionModal } from "@/components/admin/ActionModal";
+import { AdminCan } from "@/components/AdminCan";
+import { ActionModal } from "@/components/ActionModal";
 import { Modal } from "@/components/ui/Modal";
 import { Button, Input } from "@/components/ui";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -86,7 +86,6 @@ export function AdminDropoffPointsPage() {
     onError: (err) => push(err instanceof ApiClientError ? err.message : "Failed.", "error"),
   });
 
-  // Manager assignment uses user IDs — for the mock we parse username input and map to IDs
   const assignManagersMutation = useMutation({
     mutationFn: ({ id, userIds }: { id: string; userIds: number[] }) =>
       apiClient.adminAssignDropoffManagers(id, userIds),

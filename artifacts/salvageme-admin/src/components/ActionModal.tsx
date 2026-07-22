@@ -31,7 +31,6 @@ export function ActionModal({
 }: ActionModalProps) {
   const [reason, setReason] = useState("");
 
-  // Reset reason when modal opens/closes
   useEffect(() => {
     if (!open) setReason("");
   }, [open]);

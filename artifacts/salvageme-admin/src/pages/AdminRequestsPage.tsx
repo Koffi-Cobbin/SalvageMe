@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { apiClient } from "@/lib/api-client";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar, FilterSelect } from "@/components/admin/FilterBar";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar, FilterSelect } from "@/components/FilterBar";
 import { Modal } from "@/components/ui/Modal";
 import type { BookRequest } from "@/types";
+
+const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || "/";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -39,9 +40,14 @@ export function AdminRequestsPage() {
       key: "listing",
       header: "Listing",
       render: (r) => (
-        <Link href={`/listings/${r.listingId}`} className="font-medium text-terracotta-600 hover:underline no-underline">
+        <a
+          href={`${PUBLIC_APP_URL}/listings/${r.listingId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-terracotta-600 hover:underline no-underline"
+        >
           {r.listingTitle}
-        </Link>
+        </a>
       ),
     },
     { key: "requester", header: "Requester", render: (r) => r.requester.username },
@@ -111,9 +117,14 @@ export function AdminRequestsPage() {
             <div>
               <dt className="text-xs text-ink-700/50">Listing</dt>
               <dd className="mt-0.5">
-                <Link href={`/listings/${detail.listingId}`} className="text-terracotta-600 hover:underline">
+                <a
+                  href={`${PUBLIC_APP_URL}/listings/${detail.listingId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-terracotta-600 hover:underline"
+                >
                   {detail.listingTitle} →
-                </Link>
+                </a>
               </dd>
             </div>
             <div><dt className="text-xs text-ink-700/50">Requester</dt><dd className="mt-0.5">{detail.requester.username}</dd></div>

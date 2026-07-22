@@ -1,8 +1,7 @@
 import { Link } from "wouter";
-import { Menu, X, Shield } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { useAdminStore } from "@/lib/stores/admin-store";
 import { Button } from "@/components/ui";
 
 const navLinks = [
@@ -15,7 +14,6 @@ const navLinks = [
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { status } = useSessionStore();
-  const canAccessAdmin = useAdminStore((s) => s.adminMe?.canAccessAdmin ?? false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-paper-300 bg-paper-50/95 backdrop-blur">
@@ -61,15 +59,13 @@ export function SiteHeader() {
               >
                 Exchanges
               </Link>
-              {canAccessAdmin && (
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-1.5 text-sm font-medium text-ink-700 hover:text-terracotta-600 no-underline"
-                >
-                  <Shield size={15} />
-                  Admin
-                </Link>
-              )}
+              {/*
+                Note: the admin nav link was intentionally removed here.
+                Admin access now lives entirely in the separate
+                salvageme-admin app (its own origin/URL); this app no longer
+                fetches admin capability state at all. See
+                admin-app-isolation-plan.md §4 Phase 5 / §5.
+              */}
               <Link href="/dashboard">
                 <Button variant="secondary" size="sm">
                   Dashboard
@@ -130,16 +126,6 @@ export function SiteHeader() {
                 >
                   Exchanges
                 </Link>
-                {canAccessAdmin && (
-                  <Link
-                    href="/admin"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium hover:bg-paper-200 no-underline"
-                  >
-                    <Shield size={14} />
-                    Admin
-                  </Link>
-                )}
                 <Link
                   href="/dashboard"
                   onClick={() => setOpen(false)}

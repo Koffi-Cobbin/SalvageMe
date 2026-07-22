@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiClientError } from "@/lib/api-client";
 import { useToastStore } from "@/lib/stores/toast-store";
-import { AdminCan } from "@/components/admin/AdminCan";
-import { DataTable, type Column } from "@/components/admin/DataTable";
-import { FilterBar, FilterSelect } from "@/components/admin/FilterBar";
-import { ActionModal } from "@/components/admin/ActionModal";
+import { AdminCan } from "@/components/AdminCan";
+import { DataTable, type Column } from "@/components/DataTable";
+import { FilterBar, FilterSelect } from "@/components/FilterBar";
+import { ActionModal } from "@/components/ActionModal";
 import { Button } from "@/components/ui";
 import type { Exchange } from "@/types";
 

@@ -1,11 +1,11 @@
-// Types mirror the real SalvageMe API — see API_REFERENCE.md. IDs are
-// numeric on the wire; we keep them as strings in the frontend and convert
-// with Number() only where the API needs a numeric value in a request body.
+// Private copy, trimmed to only what the admin app needs. Mirrors the wire
+// format documented in API_REFERENCE.md. IDs are numeric on the wire; kept as
+// strings here and converted with Number() only where the API needs a
+// numeric value in a request body.
 //
-// Admin-only types (AdminMe, AdminRole, Capability, AdminUser, AdminReport,
-// AuditLogEntry, AdminDropoffPoint, AdminDashboard) have been removed — they
-// now live only in artifacts/salvageme-admin/src/types/index.ts, which is a
-// separate, unshared copy. See admin-app-isolation-plan.md.
+// This file intentionally does NOT import from, or stay byte-identical with,
+// artifacts/salvageme/src/types/index.ts — see admin-app-isolation-plan.md §5
+// for how contract changes are ported across by hand.
 
 export type UserRole = "donor" | "recipient" | "both";
 export type ListingCondition = "new" | "good" | "fair" | "worn";
@@ -64,17 +64,6 @@ export interface Listing {
   updatedAt: string;
 }
 
-export interface ListingsQuery {
-  category?: string;
-  condition?: ListingCondition;
-  gradeLevel?: string;
-  q?: string;
-  near?: { lat: number; lng: number };
-  radiusKm?: number;
-  pageSize?: number;
-  cursorUrl?: string | null;
-}
-
 export interface Paginated<T> {
   results: T[];
   nextCursorUrl: string | null;
@@ -99,13 +88,6 @@ export interface DropoffPoint {
   longitude: number;
 }
 
-export interface CounterpartContact {
-  username: string;
-  phone: string | null;
-  latitude: number | null;
-  longitude: number | null;
-}
-
 export interface Exchange {
   id: string;
   listingId: string;
@@ -116,7 +98,15 @@ export interface Exchange {
   status: ExchangeStatus;
   scheduledAt: string | null;
   completedAt: string | null;
-  counterpartContact: CounterpartContact | null;
+  // counterpartContact is never populated for admin-only exchange views (it's
+  // computed the same way as the public endpoint, but admin pages don't
+  // display raw contact info), kept only for type-shape compatibility.
+  counterpartContact: {
+    username: string;
+    phone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
 }
 
 export interface Rating {
@@ -137,67 +127,12 @@ export interface ImpactStats {
   computedAt: string;
 }
 
-export interface ReportPayload {
-  targetType: ReportTargetType;
-  targetId: string;
-  reason: ReportReason;
-  detail?: string;
-}
-
-export interface GalleryItem {
-  id: string;
-  src: string;
-  alt: string;
-  caption: string;
-  date: string | null;
-}
-
-export interface HealthStatus {
-  status: "ok" | "degraded";
-  database: boolean;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-}
-
 export interface ApiError {
   status: number;
   detail: string | Record<string, string[]> | string[];
   code: string;
   errors?: Record<string, string[]>;
 }
-
-// ── Notifications ──────────────────────────────────────────────────────────────
-
-export type NotificationCategory =
-  | "request_received"
-  | "request_accepted"
-  | "request_declined"
-  | "exchange_scheduled"
-  | "exchange_completed"
-  | "exchange_reminder"
-  | "report_resolved"
-  | "partner_application_ready"
-  | "partner_application_approved"
-  | "partner_application_rejected"
-  | "role_assigned"
-  | "system";
-
-export interface Notification {
-  id: string;
-  category: NotificationCategory;
-  title: string;
-  body: string;
-  /** The type of object this notification links to, e.g. "exchange", "request". */
-  targetType: string | null;
-  targetId: string | null;
-  isRead: boolean;
-  readAt: string | null;
-  createdAt: string;
-}
-
-// ── Partner applications ───────────────────────────────────────────────────────
 
 export type PartnerApplicationStatus = "pending" | "approved" | "rejected";
 
@@ -216,14 +151,76 @@ export interface PartnerApplication {
   createdAt: string;
 }
 
-export interface PartnerApplicationInput {
-  applicantName?: string;
-  applicantEmail?: string;
-  applicantPhone?: string;
-  organizationName?: string;
-  message?: string;
-  proposedDropoffName?: string;
-  proposedDropoffAddress?: string;
-  proposedLatitude?: number;
-  proposedLongitude?: number;
+// ── Admin-only types ──────────────────────────────────────────────────────
+
+export interface AdminMe {
+  adminRole: { id: string; name: string } | null;
+  capabilities: string[];
+  canAccessAdmin: boolean;
+}
+
+export interface AdminRole {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: string[];
+  isProtected: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Capability {
+  code: string;
+  description: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  isVerified: boolean;
+  isActive: boolean;
+  adminRole: { id: string; name: string } | null;
+  dateJoined: string;
+}
+
+export interface AdminReport {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ReportReason;
+  detail: string;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor: string;
+  actorUsername: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AdminDropoffPoint {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  coordinator: string | null;
+  managers: { id: string; username: string }[];
+}
+
+export interface AdminDashboard {
+  openReportsCount: number;
+  pendingRequestsCount: number;
+  unverifiedUsersCount: number;
+  listingsCreatedToday: number;
+  scheduledExchangesCount: number;
 }

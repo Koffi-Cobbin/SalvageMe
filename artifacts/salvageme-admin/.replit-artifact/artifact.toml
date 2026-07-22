@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "SalvageMe Admin"
+version = "1.0.0"
+id = "artifacts/salvageme-admin"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20930
+
+[services.development]
+run = "pnpm --filter @workspace/salvageme-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/salvageme-admin", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/salvageme-admin/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20930"
+BASE_PATH = "/"
