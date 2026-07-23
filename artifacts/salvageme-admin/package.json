@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env PORT=3001 BASE_PATH=/ vite --config vite.config.ts --host 0.0.0.0",
-    "build": "cross-env PORT=3001 BASE_PATH=/ vite build --config vite.config.ts",
+    "dev": "cross-env BASE_PATH=/salvageme-admin/ vite --config vite.config.ts --host 0.0.0.0",
+    "build": "cross-env BASE_PATH=/salvageme-admin/ vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

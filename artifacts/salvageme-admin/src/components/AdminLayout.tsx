@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Flag, Users, BookOpen, RefreshCw, Inbox,
-  Star, Tag, MapPin, Building2, History, Shield, ExternalLink,
+  Star, Tag, MapPin, Building2, History, ExternalLink, KeyRound,
   Menu, X,
 } from "lucide-react";
 import { useAdminStore } from "@/lib/stores/admin-store";
@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dropoff-points", label: "Drop-off Points", icon: MapPin, capability: "dropoff.view" },
   { href: "/partner-applications", label: "Partners", icon: Building2, capability: "partner_applications.review" },
   { href: "/audit-log", label: "Audit Log", icon: History, capability: "auditlog.view" },
-  { href: "/roles", label: "Roles", icon: Shield, capability: "roles.manage" },
+  { href: "/roles", label: "Roles", icon: KeyRound, capability: "roles.manage" },
 ];
 
 // The public site's URL — plain env-driven external link, not an in-app
@@ -70,7 +70,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-full flex-col bg-ink-900">
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-ink-700 px-4 py-4">
-        <Shield size={20} className="text-terracotta-400 shrink-0" />
+        <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="SalvageMe"
+            className="h-6 w-6 object-contain shrink-0"
+          />
         <span className="font-display text-sm font-semibold text-white">SalvageMe Admin</span>
       </div>
 

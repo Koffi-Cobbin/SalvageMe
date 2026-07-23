@@ -127,6 +127,10 @@ export interface ImpactStats {
   computedAt: string;
 }
 
+export interface AuthTokens {
+  accessToken: string;
+}
+
 export interface ApiError {
   status: number;
   detail: string | Record<string, string[]> | string[];
